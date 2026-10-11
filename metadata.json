@@ -1,0 +1,7 @@
+{
+  "name": "Needix",
+  "description": "Needix v0.6.0 - Gestionnaire d'inventaire universel, suivi de stock, alertes, listes de courses, export CSV/JSON, monétisation RevenueCat/PayPal et pipeline CI/CD automatisé.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

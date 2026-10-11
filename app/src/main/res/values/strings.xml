@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nom de l'application -->
+    <string name="app_name">Needix</string>
+
+    <!-- Navigation -->
+    <string name="nav_inventory">Inventaire</string>
+    <string name="nav_shopping">Courses</string>
+    <string name="nav_scanner">Scanner</string>
+    <string name="nav_data_backup">Sauvegarde</string>
+
+    <!-- Écran Inventaire -->
+    <string name="inventory_title">Mon Inventaire</string>
+    <string name="search_placeholder">Rechercher un produit, code-barres…</string>
+    <string name="filter_all">Tous</string>
+    <string name="filter_low_stock">Stock bas / Épuisé</string>
+    <string name="stat_total_items">Total articles</string>
+    <string name="stat_in_stock">En stock</string>
+    <string name="stat_low_stock">À renouveler</string>
+    <string name="empty_inventory_title">Aucun article dans l\'inventaire</string>
+    <string name="empty_inventory_subtitle">Ajoutez un premier produit avec le bouton + ou scannez un code-barres.</string>
+    <string name="sort_by">Trier par</string>
+    <string name="sort_name">Nom (A-Z)</string>
+    <string name="sort_quantity">Quantité</string>
+    <string name="sort_recent">Modifié récemment</string>
+    <string name="add_item">Ajouter un article</string>
+    <string name="edit_item">Modifier l\'article</string>
+    <string name="delete_item">Supprimer</string>
+    <string name="confirm_delete_title">Supprimer l\'article ?</string>
+    <string name="confirm_delete_message">Voulez-vous vraiment supprimer cet article de l\'inventaire ?</string>
+    <string name="cancel">Annuler</string>
+    <string name="save">Enregistrer</string>
+
+    <!-- Boîte de dialogue d'édition -->
+    <string name="item_name_label">Nom du produit *</string>
+    <string name="category_label">Catégorie</string>
+    <string name="quantity_label">Quantité en stock</string>
+    <string name="unit_label">Unité (pièce, kg, L…)</string>
+    <string name="min_threshold_label">Seuil d\'alerte stock bas</string>
+    <string name="location_label">Emplacement (ex: Frigo, Placard…)</string>
+    <string name="preferred_store_label">Magasin habituel</string>
+    <string name="barcode_label">Code-barres</string>
+    <string name="threshold_hint">Une notification vous alertera dès que le stock atteint ce seuil.</string>
+
+    <!-- Écran Liste de courses -->
+    <string name="shopping_title">Liste de courses</string>
+    <string name="add_shopping_item">Ajouter une course</string>
+    <string name="empty_shopping_title">Votre liste de courses est vide</string>
+    <string name="empty_shopping_subtitle">Les articles en rupture ou sous le seuil y sont ajoutés automatiquement.</string>
+    <string name="shopping_tab_all">Tout</string>
+    <string name="shopping_status_pending">À acheter</string>
+    <string name="shopping_status_on_hold">En attente</string>
+    <string name="shopping_status_bought">Acheté</string>
+    <string name="mark_bought">Marquer comme acheté</string>
+    <string name="put_on_hold">Mettre en attente</string>
+    <string name="resume_item">Remettre à acheter</string>
+    <string name="transfer_to_inventory">Transférer dans l\'inventaire</string>
+
+    <!-- Écran Scanner -->
+    <string name="scanner_title">Scanner de code-barres</string>
+    <string name="scanner_instruction">Pointez la caméra vers le code-barres d\'un produit</string>
+    <string name="scanner_permission_required">L\'accès à la caméra est nécessaire pour scanner les produits.</string>
+    <string name="grant_camera_permission">Autoriser la caméra</string>
+    <string name="manual_barcode_input">Saisir un code-barres manuellement</string>
+    <string name="barcode_found">Produit détecté</string>
+    <string name="barcode_not_found">Produit inconnu</string>
+    <string name="add_to_inventory_action">Ajouter à l\'inventaire</string>
+    <string name="restock_action">Réapprovisionner (+1)</string>
+
+    <!-- Sauvegarde & Export Universel FOSS -->
+    <string name="data_backup_title">Sauvegarde &amp; Export Universel</string>
+    <string name="export_csv_title">Export CSV Standard</string>
+    <string name="export_csv_desc">Fichier tableur universel éditable sur PC/Mac (Excel, LibreOffice, Google Sheets).</string>
+    <string name="export_csv_button">Exporter en CSV</string>
+    <string name="export_json_title">Sauvegarde Intégrale (JSON)</string>
+    <string name="export_json_desc">Sauvegarde complète sans perte (articles, catégories, magasins, historique).</string>
+    <string name="export_json_button">Créer une sauvegarde JSON</string>
+    <string name="import_title">Importer des Données</string>
+    <string name="import_desc">Restaurez un fichier CSV ou une sauvegarde JSON complète.</string>
+    <string name="import_csv_button">Importer un fichier CSV</string>
+    <string name="import_json_button">Restaurer sauvegarde JSON</string>
+    <string name="storage_saf_info">Stockage universel SAF : enregistrez localement ou sur Nextcloud, Drive, carte SD.</string>
+
+    <!-- Modèle Économique Hybride & Dons FOSS -->
+    <string name="support_project_title">Soutenir Needix (FOSS)</string>
+    <string name="support_project_desc">Needix est une application 100% open-source et respectueuse de votre vie privée. Si vous l\'appréciez, vous pouvez soutenir son développement indépendant !</string>
+    <string name="donate_github">GitHub Sponsors</string>
+    <string name="donate_liberapay">Liberapay</string>
+    <string name="donate_kofi">Ko-fi / Buy Me a Coffee</string>
+    <string name="donate_paypal">PayPal</string>
+    <string name="commercial_paywall_title">Needix Premium</string>
+    <string name="trial_active_message">Période d\'essai gratuite : %1$d jours restants</string>
+    <string name="trial_expired_message">Votre période d\'essai de 14 jours est terminée.</string>
+    <string name="subscription_monthly">Abonnement Mensuel (2,99 € / mois)</string>
+    <string name="subscription_annual">Abonnement Annuel (19,99 € / an - 2 mois offerts)</string>
+    <string name="subscribe_button">S\'abonner</string>
+    <string name="flavor_mode_label">Mode de distribution</string>
+    <string name="flavor_foss_name">FOSS (Libre &amp; Dons)</string>
+    <string name="flavor_commercial_name">Commercial (Essai 14j &amp; Store)</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Alertes de stock Needix</string>
+    <string name="notification_threshold_title">Stock bas : %1$s</string>
+    <string name="notification_threshold_body">Il ne reste que %1$d %2$s (seuil : %3$d). Pensez à en acheter chez %4$s.</string>
+
+    <!-- Site Vitrine & Version Web (Cloudflare Pages) -->
+    <string name="web_landing_title">Site Vitrine &amp; Web App</string>
+    <string name="web_landing_desc">Accédez au site vitrine et à la version Web sans installation hébergée sur Cloudflare Pages (/Needix). Manipulez vos fichiers JSON en direct via l\'API File System Access.</string>
+    <string name="web_landing_button">Ouvrir la version Web (/Needix)</string>
+</resources>

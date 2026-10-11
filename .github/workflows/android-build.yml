@@ -1,0 +1,136 @@
+name: Build, Test and Release Needix v0.6.0
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/**'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'web/**'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/**'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'web/**'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  # Job 1 : Exécution obligatoire et bloquante de la suite de tests unitaires
+  unit-tests:
+    name: Automated Unit Tests (Gate)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Récupérer le code source
+      uses: actions/checkout@v4
+
+    - name: Configurer Java 17 (Temurin)
+      uses: actions/setup-java@v5
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle # Green IT : Mise en cache pour diviser par deux le temps CPU
+
+    - name: Générer le Wrapper Gradle
+      run: gradle wrapper
+
+    - name: Exécuter tous les tests unitaires (bloquant en cas d'échec)
+      run: ./gradlew testDebugUnitTest --continue
+
+    - name: Sauvegarder les rapports de tests unitaires
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: app/build/reports/tests/testDebugUnitTest/
+
+  # Job 2 : Compilation & Packaging des Artefacts de Release (Android AAB + Archive Web)
+  package-and-release:
+    name: Package & Release Artifacts
+    needs: [unit-tests] # Condition stricte : Exécuté uniquement si les tests passent avec succès
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Récupérer le code source
+      uses: actions/checkout@v4
+
+    - name: Configurer Java 17 (Temurin)
+      uses: actions/setup-java@v5
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Préparer le Keystore de Signature
+      env:
+        KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "Clé de signature de production détectée dans les secrets GitHub."
+          echo "$KEYSTORE_BASE64" | base64 -d > release-keystore.jks
+          echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/release-keystore.jks" >> $GITHUB_ENV
+        else
+          echo "Aucun secret de signature : fallback transparent sur debug.keystore local."
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
+        fi
+
+    - name: Générer le Wrapper Gradle
+      run: gradle wrapper
+
+    - name: Compiler l'APK Android (Debug)
+      env:
+        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+      run: ./gradlew assembleDebug
+
+    - name: Sauvegarder l'APK de vérification
+      uses: actions/upload-artifact@v4
+      with:
+        name: Needix-Debug-APK
+        path: app/build/outputs/apk/debug/*.apk
+
+    - name: Compiler le Bundle Google Play (.aab) (Release uniquement)
+      if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+      env:
+        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: ./gradlew bundleRelease
+
+    - name: Préparer l'archive Web Needix (Cloudflare Pages)
+      if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+      run: |
+        echo "Compression des fichiers statiques de la Web App / Landing Page Needix..."
+        tar -czf needix-web-v0.6.0.tar.gz -C web/Needix .
+
+    - name: Sauvegarder le bundle AAB comme artefact
+      if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: Needix-Release-Bundle-AAB
+        path: app/build/outputs/bundle/release/*.aab
+
+    - name: Sauvegarder le bundle Web comme artefact
+      if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: Needix-Web-Archive
+        path: needix-web-v0.6.0.tar.gz
+
+    - name: Attacher les artefacts finaux (.aab et archive Web) à la Release GitHub
+      if: github.event_name == 'release' && github.event.action == 'published'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          app/build/outputs/bundle/release/*.aab
+          needix-web-v0.6.0.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
