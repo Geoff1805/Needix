@@ -1,4 +1,4 @@
-name: Build, Test and Release Needix v0.6.0
+name: Build, Test and Release Needix v0.6.2
 
 on:
   push:
@@ -32,10 +32,10 @@ jobs:
 
     steps:
     - name: Récupérer le code source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Configurer Java 21 (Temurin)
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -50,11 +50,11 @@ jobs:
     - name: Mettre à jour le graphe de dépendances GitHub (Sécurité Dependabot)
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       continue-on-error: true
-      uses: gradle/actions/dependency-submission@v4
+      uses: gradle/actions/dependency-submission@v6
 
     - name: Sauvegarder les rapports de tests unitaires
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: test-reports
         path: app/build/reports/tests/testDebugUnitTest/
@@ -67,10 +67,10 @@ jobs:
 
     steps:
     - name: Récupérer le code source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Configurer Java 21 (Temurin)
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -96,7 +96,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Sauvegarder l'APK de vérification
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
@@ -113,28 +113,28 @@ jobs:
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
       run: |
         echo "Compression des fichiers statiques de la Web App / Landing Page Needix..."
-        tar -czf needix-web-v0.6.0.tar.gz -C web .
+        tar -czf needix-web-v0.6.2.tar.gz -C web .
 
     - name: Sauvegarder le bundle AAB comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Release-Bundle-AAB
         path: app/build/outputs/bundle/release/*.aab
 
     - name: Sauvegarder le bundle Web comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Web-Archive
-        path: needix-web-v0.6.0.tar.gz
+        path: needix-web-v0.6.2.tar.gz
 
     - name: Attacher les artefacts finaux (.aab et archive Web) à la Release GitHub
       if: github.event_name == 'release' && github.event.action == 'published'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           app/build/outputs/bundle/release/*.aab
-          needix-web-v0.6.0.tar.gz
+          needix-web-v0.6.2.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
