@@ -1,0 +1,124 @@
+{
+  "app": "Needix",
+  "version": "1.0.0",
+  "exportDate": "2026-10-11T12:00:00Z",
+  "items": [
+    {
+      "id": 1,
+      "name": "Lait demi-écrémé Bio",
+      "category": "Produits laitiers",
+      "location": "Frigo",
+      "quantity": 2.0,
+      "unit": "L",
+      "minQuantity": 2.0,
+      "expirationDate": "2026-10-18",
+      "barcode": "3250390112345",
+      "store": "BioCoop",
+      "notes": "Bouteille 1L"
+    },
+    {
+      "id": 2,
+      "name": "Yaourt nature fermier",
+      "category": "Produits laitiers",
+      "location": "Frigo",
+      "quantity": 4.0,
+      "unit": "pots",
+      "minQuantity": 4.0,
+      "expirationDate": "2026-10-13",
+      "barcode": "3155250004321",
+      "store": "Supermarché",
+      "notes": "Péremption imminente !"
+    },
+    {
+      "id": 3,
+      "name": "Pâtes Penne Rigate",
+      "category": "Épicerie salée",
+      "location": "Placard",
+      "quantity": 3.0,
+      "unit": "paquets",
+      "minQuantity": 2.0,
+      "expirationDate": "2027-04-20",
+      "barcode": "8001250123456",
+      "store": "Supermarché",
+      "notes": "500g par paquet"
+    },
+    {
+      "id": 4,
+      "name": "Huile d'olive vierge extra",
+      "category": "Condiments & Huiles",
+      "location": "Placard",
+      "quantity": 1.0,
+      "unit": "L",
+      "minQuantity": 1.0,
+      "expirationDate": "2027-08-15",
+      "barcode": "8410250987654",
+      "store": "Épicerie locale",
+      "notes": "Première pression à froid"
+    },
+    {
+      "id": 5,
+      "name": "Steaks hachés pur bœuf",
+      "category": "Viandes & Poissons",
+      "location": "Congélateur",
+      "quantity": 6.0,
+      "unit": "pièces",
+      "minQuantity": 4.0,
+      "expirationDate": "2026-12-30",
+      "barcode": "3560070119988",
+      "store": "Boucherie",
+      "notes": "15% MG"
+    },
+    {
+      "id": 6,
+      "name": "Pommes Gala",
+      "category": "Fruits & Légumes",
+      "location": "Placard",
+      "quantity": 1.0,
+      "unit": "kg",
+      "minQuantity": 2.0,
+      "expirationDate": "2026-10-22",
+      "barcode": "",
+      "store": "Marché",
+      "notes": "Origine France"
+    },
+    {
+      "id": 7,
+      "name": "Café moulu pur arabica",
+      "category": "Boissons & Café",
+      "location": "Placard",
+      "quantity": 0.0,
+      "unit": "paquet",
+      "minQuantity": 1.0,
+      "expirationDate": "2027-01-10",
+      "barcode": "3017760000123",
+      "store": "Torréfacteur",
+      "notes": "En rupture - à racheter"
+    }
+  ],
+  "shoppingList": [
+    {
+      "id": 1,
+      "name": "Café moulu pur arabica",
+      "quantity": 2.0,
+      "unit": "paquets",
+      "checked": false,
+      "store": "Torréfacteur"
+    },
+    {
+      "id": 2,
+      "name": "Pommes Gala",
+      "quantity": 2.0,
+      "unit": "kg",
+      "checked": false,
+      "store": "Marché"
+    },
+    {
+      "id": 3,
+      "name": "Beurre doux AOP",
+      "quantity": 1.0,
+      "unit": "plaquette",
+      "checked": true,
+      "store": "BioCoop"
+    }
+  ]
+}

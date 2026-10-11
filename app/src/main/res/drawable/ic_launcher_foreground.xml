@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Center group within 66dp safe zone (21dp to 87dp) -->
+    <group
+        android:translateX="0"
+        android:translateY="0">
+        <!-- Storage / pantry box body -->
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M32,46 L76,46 C78.2,46 80,47.8 80,50 L80,78 C80,80.2 78.2,82 76,82 L32,82 C29.8,82 28,80.2 28,78 L28,50 C28,47.8 29.8,46 32,46 Z" />
+        
+        <!-- Box lid / shelf upper contour -->
+        <path
+            android:fillColor="#0284C7"
+            android:pathData="M26,42 L82,42 C83.1,42 84,42.9 84,44 L84,48 C84,49.1 83.1,50 82,50 L26,50 C24.9,50 24,49.1 24,48 L24,44 C24,42.9 24.9,42 26,42 Z" />
+
+        <!-- Barcode stripes in white on box front -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M34,56 L37,56 L37,74 L34,74 Z
+                             M39,56 L41,56 L41,74 L39,74 Z
+                             M43,56 L46,56 L46,74 L43,74 Z
+                             M48,56 L49.5,56 L49.5,74 L48,74 Z
+                             M52,56 L55,56 L55,74 L52,74 Z" />
+
+        <!-- Checkmark badge / shopping cart circle -->
+        <path
+            android:fillColor="#10B981"
+            android:pathData="M67,65 m-10,0 a10,10 0,1,0 20,0 a10,10 0,1,0 -20,0" />
+        
+        <!-- Checkmark symbol -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M62.5,65 L65.5,68 L71.5,62 L73,63.5 L65.5,71 L61,66.5 Z" />
+
+        <!-- Red scanner laser beam across top -->
+        <path
+            android:fillColor="#F43F5E"
+            android:pathData="M30,34 L78,34 C79.1,34 80,34.9 80,36 C80,37.1 79.1,38 78,38 L30,38 C28.9,38 28,37.1 28,36 C28,34.9 28.9,34 30,34 Z" />
+
+        <!-- Laser sparkles / sensors -->
+        <path
+            android:fillColor="#FDA4AF"
+            android:pathData="M34,31 L36,31 L36,33 L34,33 Z M72,31 L74,31 L74,33 L72,33 Z" />
+    </group>
+</vector>
