@@ -1,0 +1,138 @@
+[
+  {
+    "barcode": "3250390001001",
+    "name": "Huile d'olive vierge extra",
+    "brand": "Puget",
+    "quantity": "1 L",
+    "unit": "L",
+    "category": "cuisine",
+    "nutriScore": "C",
+    "notes": "Première pression à froid • 1 L"
+  },
+  {
+    "barcode": "3017620422003",
+    "name": "Pâte à tartiner aux noisettes et cacao",
+    "brand": "Nutella",
+    "quantity": "400 g",
+    "unit": "pot",
+    "category": "aliments",
+    "nutriScore": "E",
+    "allergens": "Lait, Fruits à coque (noisettes), Soja",
+    "notes": "Pot 400 g • Nutri-Score E • Allergènes : Lait, Noisettes, Soja"
+  },
+  {
+    "barcode": "8076809513753",
+    "name": "Pâtes Penne Rigate n°73",
+    "brand": "Barilla",
+    "quantity": "500 g",
+    "unit": "paquet",
+    "category": "aliments",
+    "nutriScore": "A",
+    "allergens": "Gluten (blé)",
+    "notes": "Semoule de blé dur 500 g • Nutri-Score A"
+  },
+  {
+    "barcode": "3014260020123",
+    "name": "Lessive liquide Original",
+    "brand": "Ariel",
+    "quantity": "1.8 L",
+    "unit": "bidon",
+    "category": "menager",
+    "notes": "Bidon 36 lavages (1,8 L)"
+  },
+  {
+    "barcode": "3400936081498",
+    "name": "Doliprane Paracétamol 1000 mg",
+    "brand": "Sanofi",
+    "quantity": "8 comprimés",
+    "unit": "boîte",
+    "category": "pharmacie",
+    "notes": "Boîte de 8 comprimés • Antalgique et antipyrétique"
+  },
+  {
+    "barcode": "3600523724451",
+    "name": "Gel Douche Surgras Hydratant",
+    "brand": "Mixa",
+    "quantity": "400 ml",
+    "unit": "flacon",
+    "category": "hygiene",
+    "notes": "Peaux sensibles • Flacon 400 ml • Sans savon"
+  },
+  {
+    "barcode": "3337875597388",
+    "name": "Gel Moussant Purifiant Effaclar",
+    "brand": "La Roche-Posay",
+    "quantity": "400 ml",
+    "unit": "flacon",
+    "category": "hygiene",
+    "notes": "Cosmétique & Soin dermatologique • 400 ml"
+  },
+  {
+    "barcode": "8718951262454",
+    "name": "Liquide Vaisselle Ultra Dégraissant Citron",
+    "brand": "Paic",
+    "quantity": "750 ml",
+    "unit": "flacon",
+    "category": "menager",
+    "notes": "Entretien vaisselle • Flacon 750 ml"
+  },
+  {
+    "barcode": "3165140892681",
+    "name": "Coffret d'embouts de vissage Impact Control",
+    "brand": "Bosch",
+    "quantity": "36 pièces",
+    "unit": "coffret",
+    "category": "bricolage",
+    "notes": "Outillage & Bricolage • 36 pièces"
+  },
+  {
+    "barcode": "9782070612758",
+    "name": "Le Petit Prince",
+    "brand": "Antoine de Saint-Exupéry (Gallimard)",
+    "quantity": "1 livre",
+    "unit": "livre",
+    "category": "autre",
+    "notes": "ISBN 978-2-07-061275-8 • Éditions Gallimard Folio"
+  },
+  {
+    "barcode": "9782070360024",
+    "name": "L'Étranger",
+    "brand": "Albert Camus (Gallimard)",
+    "quantity": "1 livre",
+    "unit": "livre",
+    "category": "autre",
+    "notes": "ISBN 978-2-07-036002-4 • Collection Folio"
+  },
+  {
+    "barcode": "3228857000166",
+    "name": "Pain de mie Complet sans croûte",
+    "brand": "Harrys",
+    "quantity": "500 g",
+    "unit": "paquet",
+    "category": "aliments",
+    "nutriScore": "A",
+    "allergens": "Gluten (blé)",
+    "notes": "100% Mie • 500 g • Nutri-Score A"
+  },
+  {
+    "barcode": "3068320114453",
+    "name": "Eau minérale naturelle",
+    "brand": "Evian",
+    "quantity": "1.5 L",
+    "unit": "bouteille",
+    "category": "aliments",
+    "nutriScore": "A",
+    "notes": "Bouteille 1,5 L • Nutri-Score A"
+  },
+  {
+    "barcode": "3250390112345",
+    "name": "Lait demi-écrémé Bio UHT",
+    "brand": "Bio Village",
+    "quantity": "1 L",
+    "unit": "L",
+    "category": "aliments",
+    "nutriScore": "A",
+    "allergens": "Lait",
+    "notes": "Bouteille 1 L • Origine France • Nutri-Score A"
+  }
+]
