@@ -6,7 +6,7 @@
   <title>Needix Web App — Gestionnaire d'inventaire local (Wasm/HTML5)</title>
   <meta name="description" content="Version Web de Needix : manipulez votre fichier d'inventaire JSON localement via l'API standard File System Access.">
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%2232%22%20height=%2232%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2310b981%22/><text x=%2216%22 y=%2222%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22white%22>📦</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%2032%2032%22 width=%2232%22 height=%2232%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2310b981%22/><text x=%2216%22 y=%2222%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22white%22>📦</text></svg>">
 </head>
 <body style="background: #080c14;">
 
@@ -48,6 +48,9 @@
           </button>
           <button id="btn-export-csv" class="btn-action" title="Exporter en tableur CSV">
             <span>📊</span> <span data-i18n="btn_export_csv">Exporter CSV</span>
+          </button>
+          <button id="btn-receipt-scan" class="btn-action" title="Importer ou coller un ticket de caisse numérique">
+            <span>🧾</span> <span data-i18n="btn_receipt_scan">Ticket numérique</span>
           </button>
           <button id="btn-load-sample" class="btn-action" title="Charger un jeu de données d'exemple">
             <span>✨</span> <span data-i18n="btn_load_sample">Charger un exemple</span>
@@ -198,6 +201,45 @@
           <button type="submit" class="btn-action btn-save-main" data-i18n="btn_save">Enregistrer</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Digital Receipt ([BACKLOG-RECEIPT-08]) -->
+  <div id="receipt-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-window" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>🧾 Lecture de Ticket Numérique & Mise à jour stock</h3>
+        <button id="receipt-modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 12px;">
+          Importez un fichier de ticket numérique ou collez le texte ci-dessous (e-mail, reçu de caisse). Needix extrait les produits et quantités achetés et propose de mettre à jour votre stock.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+          <input type="file" id="receipt-file-input" accept=".txt,.html,.eml,.csv,text/plain,text/html" style="display: none;">
+          <button type="button" id="btn-load-receipt-file" class="btn-action">📂 Importer un fichier</button>
+          <button type="button" id="btn-load-receipt-sample" class="btn-action">✨ Charger un exemple</button>
+        </div>
+
+        <div class="form-group">
+          <label for="receipt-raw-text">Texte du ticket de caisse :</label>
+          <textarea id="receipt-raw-text" class="form-control" rows="6" placeholder="Collez ici le contenu de votre ticket de caisse..." style="font-family: monospace; font-size: 0.85rem;"></textarea>
+        </div>
+
+        <button type="button" id="btn-parse-receipt" class="btn-action btn-save-main" style="width: 100%; margin-bottom: 14px;">
+          🔍 Analyser le ticket
+        </button>
+
+        <div id="receipt-results-container" style="display: none;">
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: #38bdf8;">Produits détectés :</h4>
+          <div id="receipt-items-list" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="receipt-cancel-btn" class="btn-action">Fermer</button>
+        <button type="button" id="receipt-apply-btn" class="btn-action btn-save-main" style="display: none;">✓ Mettre à jour l'inventaire</button>
+      </div>
     </div>
   </div>
 
