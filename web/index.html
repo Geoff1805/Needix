@@ -44,16 +44,16 @@
   <!-- Hero Section -->
   <section id="hero" class="hero-section">
     <div class="container">
-      <span class="hero-tag" data-i18n="hero_tag">100% LOCAL & SANS ABONNEMENT OBLIGATOIRE</span>
+      <span class="hero-tag" data-i18n="hero_tag">VERSION WEB GRATUITE SANS ABONNEMENT • DONNÉES 100% LOCALES</span>
       <h1 class="hero-title" data-i18n="hero_title">Reprenez le contrôle absolu de vos stocks domestiques</h1>
       <p class="hero-subtitle" data-i18n="hero_subtitle">
-        Needix est le gestionnaire d'inventaire maison éco-conçu, respectueux de votre vie privée et anti-gaspillage. Vos placards, votre frigo et vos courses synchronisés en totale indépendance.
+        Needix est le gestionnaire d'inventaire maison éco-conçu et anti-gaspillage. Seule la version Web est accessible gratuitement sans abonnement (les applications mobiles incluent un essai gratuit puis abonnement). Bien que ce site soit hébergé sur Cloudflare Pages, vos données d'inventaire restent 100% locales sur votre appareil.
       </p>
 
       <div class="hero-cta-group">
         <a href="#web-app" class="btn-primary-hero">
           <span>🚀</span>
-          <span data-i18n="hero_cta_web">Essayer la version Web (Sans installation)</span>
+          <span data-i18n="hero_cta_web">Utiliser la version Web (Sans abonnement)</span>
         </a>
         <a href="#stores" class="btn-secondary-hero">
           <span>📱</span>
@@ -62,9 +62,9 @@
       </div>
 
       <div class="hero-badges-row">
-        <span>🛡️ <strong data-i18n="hero_badge_privacy">Zéro compte requis • Stockage 100% local</strong></span>
-        <span>🔓 <strong data-i18n="hero_badge_cloud_free">Sans vendor lock-in • JSON/CSV ouverts</strong></span>
-        <span>🌱 <strong data-i18n="hero_badge_green">Éco-conçu & Souverain • Green IT</strong></span>
+        <span>🛡️ <strong data-i18n="hero_badge_privacy">Version Web sans abonnement • Données 100% locales</strong></span>
+        <span>☁️ <strong data-i18n="hero_badge_cloud_free">Hébergé sur Cloudflare Pages • Zéro stockage serveur</strong></span>
+        <span>🌱 <strong data-i18n="hero_badge_green">Éco-conçu & Souverain • Formats JSON/CSV ouverts</strong></span>
       </div>
     </div>
   </section>
@@ -74,8 +74,8 @@
     <div class="concept-highlights">
       <div class="concept-card">
         <div class="concept-icon">🛡️</div>
-        <h3 data-i18n="pill_indep">Indépendance Totale</h3>
-        <p data-i18n="pill_indep_desc">Aucune obligation de créer un compte cloud ou de souscrire à des serveurs tiers. Vos données vous appartiennent exclusivement.</p>
+        <h3 data-i18n="pill_indep">Données 100% Locales & Hébergement Transparent</h3>
+        <p data-i18n="pill_indep_desc">L'interface Web statique est hébergée sur Cloudflare Pages, mais aucune donnée d'inventaire ne quitte votre appareil. Seule la version Web est sans abonnement.</p>
       </div>
 
       <div class="concept-card">
@@ -85,9 +85,9 @@
       </div>
 
       <div class="concept-card">
-        <div class="concept-icon">⏳</div>
-        <h3 data-i18n="pill_antigaspi">Anti-Gaspillage Actif</h3>
-        <p data-i18n="pill_antigaspi_desc">Alertes intelligentes avant la date limite de péremption pour consommer vos denrées à temps et faire des économies durables.</p>
+        <div class="concept-icon">🧾</div>
+        <h3 data-i18n="pill_antigaspi">Scan, Tickets Numériques & Anti-Gaspi</h3>
+        <p data-i18n="pill_antigaspi_desc">Scannez vos codes-barres (avec bip de confirmation), importez vos tickets de caisse numériques de magasin et recevez des alertes avant péremption.</p>
       </div>
     </div>
   </section>
@@ -97,7 +97,7 @@
     <div class="container">
       <div class="section-header">
         <h2 data-i18n="stores_title">Disponible sur toutes vos plateformes</h2>
-        <p data-i18n="stores_subtitle">Installez l'application native sur vos smartphones et tablettes ou profitez de l'application Web sans installation.</p>
+        <p data-i18n="stores_subtitle">Seule la version Web ci-dessous est accessible sans abonnement. Les applications mobiles natives (Google Play, App Store, Amazon, Galaxy Store) offrent 14 jours d'essai gratuit puis un abonnement.</p>
       </div>
 
       <div class="store-badges-grid">
@@ -212,6 +212,9 @@
             <button id="btn-export-csv" class="btn-action" title="Exporter en tableur CSV (Excel, LibreOffice)">
               <span>📊</span> <span data-i18n="btn_export_csv">Exporter CSV</span>
             </button>
+            <button id="btn-receipt-scan" class="btn-action" title="Importer ou coller un ticket de caisse numérique">
+              <span>🧾</span> <span data-i18n="btn_receipt_scan">Ticket numérique</span>
+            </button>
             <button id="btn-load-sample" class="btn-action" title="Charger un jeu de données d'exemple">
               <span>✨</span> <span data-i18n="btn_load_sample">Charger un exemple</span>
             </button>
@@ -284,37 +287,37 @@
   <section id="faq" class="faq-section container">
     <div class="section-header" style="text-align: center;">
       <h2 data-i18n="faq_title">Foire Aux Questions</h2>
-      <p data-i18n="faq_subtitle">Tout ce que vous devez savoir sur la philosophie et la technologie Needix.</p>
+      <p data-i18n="faq_subtitle">Tout ce que vous devez savoir sur la philosophie, l'hébergement Cloudflare et le modèle économique Needix.</p>
     </div>
 
     <div class="faq-accordion">
       <div class="faq-item">
         <div class="faq-question" onclick="this.parentElement.classList.toggle('open')">
-          <span data-i18n="faq_q1">Mes données d'inventaire sont-elles envoyées sur des serveurs distants ?</span>
+          <span data-i18n="faq_q1">Mes données d'inventaire sont-elles envoyées sur Cloudflare ou des serveurs distants ?</span>
           <span>▾</span>
         </div>
         <div class="faq-answer" data-i18n="faq_a1">
-          Non, absolument jamais. Needix est conçu selon le principe de la souveraineté numérique. Vos données restent stockées dans la base de données sécurisée de votre téléphone ou directement dans votre fichier local JSON lorsque vous utilisez l'application Web.
+          Non, jamais. Bien que le site et l'application Web statique soient hébergés sur Cloudflare Pages pour une distribution rapide, vos données d'inventaire restent stockées 100% localement : dans la base de données interne de votre téléphone ou directement dans votre fichier JSON local sur votre ordinateur.
         </div>
       </div>
 
       <div class="faq-item">
         <div class="faq-question" onclick="this.parentElement.classList.toggle('open')">
-          <span data-i18n="faq_q2">Comment fonctionne la version Web (Wasm) sans installation ?</span>
+          <span data-i18n="faq_q2">Quelle est la différence d'abonnement entre la version Web et l'application Mobile ?</span>
           <span>▾</span>
         </div>
         <div class="faq-answer" data-i18n="faq_a2">
-          La version Web utilise l'API standard HTML5 'File System Access' (et WebAssembly). Cela permet à votre navigateur d'ouvrir et de modifier directement un fichier JSON sur votre disque dur ou clé USB, sans qu'aucun octet ne transite par un serveur externe.
+          Seule la version Web (accessible dans votre navigateur via l'API HTML5 File System Access) est gratuite et sans abonnement. Les applications mobiles natives distribuées sur les stores proposent une période d'essai gratuit de 14 jours suivie d'un abonnement.
         </div>
       </div>
 
       <div class="faq-item">
         <div class="faq-question" onclick="this.parentElement.classList.toggle('open')">
-          <span data-i18n="faq_q3">Puis-je synchroniser mes données entre mon téléphone et mon PC ?</span>
+          <span data-i18n="faq_q3">Puis-je mettre à jour mon stock avec un ticket de caisse numérique ?</span>
           <span>▾</span>
         </div>
         <div class="faq-answer" data-i18n="faq_a3">
-          Oui ! Il vous suffit d'exporter votre fichier JSON depuis l'application mobile (via le sélecteur Android SAF vers votre dossier local ou un dossier synchronisé comme Nextcloud / Google Drive) et de l'ouvrir directement dans la version Web.
+          Oui ! Sur mobile comme sur la version Web, cliquez sur 'Ticket numérique', importez ou collez votre ticket de magasin : Needix détecte les produits et quantités achetés et vous propose d'actualiser votre inventaire en un clic.
         </div>
       </div>
 
@@ -422,13 +425,52 @@
     </div>
   </div>
 
+  <!-- Modal Digital Receipt ([BACKLOG-RECEIPT-08]) -->
+  <div id="receipt-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-window" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>🧾 Lecture de Ticket Numérique & Mise à jour stock</h3>
+        <button id="receipt-modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 12px;">
+          Importez un fichier de ticket numérique ou collez le texte ci-dessous (e-mail, reçu de caisse). Needix extrait les produits et quantités achetés et propose de mettre à jour votre stock.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+          <input type="file" id="receipt-file-input" accept=".txt,.html,.eml,.csv,text/plain,text/html" style="display: none;">
+          <button type="button" id="btn-load-receipt-file" class="btn-action">📂 Importer un fichier</button>
+          <button type="button" id="btn-load-receipt-sample" class="btn-action">✨ Charger un exemple</button>
+        </div>
+
+        <div class="form-group">
+          <label for="receipt-raw-text">Texte du ticket de caisse :</label>
+          <textarea id="receipt-raw-text" class="form-control" rows="6" placeholder="Collez ici le contenu de votre ticket de caisse..." style="font-family: monospace; font-size: 0.85rem;"></textarea>
+        </div>
+
+        <button type="button" id="btn-parse-receipt" class="btn-action btn-save-main" style="width: 100%; margin-bottom: 14px;">
+          🔍 Analyser le ticket
+        </button>
+
+        <div id="receipt-results-container" style="display: none;">
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: #38bdf8;">Produits détectés :</h4>
+          <div id="receipt-items-list" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="receipt-cancel-btn" class="btn-action">Fermer</button>
+        <button type="button" id="receipt-apply-btn" class="btn-action btn-save-main" style="display: none;">✓ Mettre à jour l'inventaire</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Footer -->
   <footer class="site-footer">
     <div class="container">
-      <p data-i18n="footer_text">Needix • Application éco-conçue (Green IT) propriétaire. Tous droits réservés.</p>
+      <p data-i18n="footer_text">Needix • Application éco-conçue propriétaire. Site hébergé sur Cloudflare Pages (données d'inventaire 100% locales). Seule la version Web est sans abonnement. Tous droits réservés.</p>
       <div class="footer-links">
         <a href="#stores">Stores</a>
         <a href="#mode-emploi">Documentation</a>
