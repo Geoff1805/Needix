@@ -38,16 +38,17 @@ class ScannerViewModel(
     val uiEvents = _uiEvents.asSharedFlow()
 
     val demoBarcodes = listOf(
-        DemoBarcode("3250390001001", "Huile d'olive Puget", "cuisine"),
-        DemoBarcode("3014260020123", "Lessive liquide Ariel", "menager"),
-        DemoBarcode("8076809513753", "Pâtes Barilla Penne", "aliments"),
-        DemoBarcode("3400936081498", "Doliprane 1000mg", "pharmacie"),
-        DemoBarcode("3017620422003", "Nutella Pâte à tartiner", "aliments")
+        DemoBarcode("3250390001001", "🥫 Huile d'olive Puget", "cuisine"),
+        DemoBarcode("3017620422003", "🍫 Nutella 400g", "aliments"),
+        DemoBarcode("3600523724451", "🧴 Gel Douche Mixa", "hygiene"),
+        DemoBarcode("3014260020123", "🧼 Lessive Ariel", "menager"),
+        DemoBarcode("3400936081498", "💊 Doliprane 1000mg", "pharmacie"),
+        DemoBarcode("9782070612758", "📚 Le Petit Prince (ISBN)", "autre")
     )
 
     fun onBarcodeDetected(barcode: String) {
         if (_uiState.value.isSearching) return
-        val cleanBarcode = barcode.trim()
+        val cleanBarcode = ProductLookupService.normalizeBarcode(barcode)
         if (cleanBarcode.isBlank()) return
 
         viewModelScope.launch {
@@ -65,7 +66,7 @@ class ScannerViewModel(
                 return@launch
             }
 
-            // 2. Query OpenFoodFacts
+            // 2. Query Multi-API & Offline Open-Product-Database cascade
             val online = ProductLookupService.lookupBarcode(cleanBarcode)
             if (online != null) {
                 _uiState.value = ScannerUiState(
@@ -73,12 +74,12 @@ class ScannerViewModel(
                     isSearching = false,
                     onlineProduct = online
                 )
-                _uiEvents.emit("Produit identifié en ligne !")
+                _uiEvents.emit("Produit identifié via ${online.source} !")
             } else {
                 _uiState.value = ScannerUiState(
                     scannedBarcode = cleanBarcode,
                     isSearching = false,
-                    notFoundMessage = "Nouveau code-barres non répertorié. Vous pouvez l'ajouter manuellement !"
+                    notFoundMessage = "Code-barres non répertorié dans les bases mondiales. Vous pouvez l'ajouter manuellement !"
                 )
             }
         }
@@ -98,7 +99,8 @@ class ScannerViewModel(
         quantity: Int,
         unit: String,
         storeId: String,
-        location: String
+        location: String,
+        notes: String = ""
     ) {
         val barcode = _uiState.value.scannedBarcode
         viewModelScope.launch {
@@ -110,7 +112,8 @@ class ScannerViewModel(
                     unit = unit.ifBlank { "pièce" },
                     preferredStoreId = storeId,
                     location = location.ifBlank { "Maison" },
-                    barcode = barcode
+                    barcode = barcode,
+                    notes = notes.trim()
                 )
             )
             _uiEvents.emit("« $name » ajouté à l'inventaire")

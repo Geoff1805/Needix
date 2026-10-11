@@ -80,11 +80,11 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 ---
 
 ### [BACKLOG-SCANNER-06] Reconnaissance Universelle Multi-API & Base Hors-Ligne (`Open-Product-Database`)
-- **Statut** : `Planifié — En attente de validation`
+- **Statut** : `Terminé / Livré`
 - **Origine** : Demande utilisateur — Maximiser le taux de reconnaissance du lecteur de codes-barres (alimentaire, ménager, cosmétique, livres/culture et mode hors-ligne).
 - **Spécifications** :
   1. **Base de données locale embarquée (`Open-Product-Database`)** :
-     - Intégration d'une base de données JSON/TSV locale embarquée (`app/src/main/assets/open_product_database.json` et `web/data/open-product-database.json`) + cache local en mémoire/disque pour reconnaître instantanément les produits courants **sans aucune connexion réseau** (0 ms de latence, Green IT).
+     - Intégration d'une base de données JSON locale embarquée (`app/src/main/assets/open_product_database.json` et `web/data/open-product-database.json`) + cache local en mémoire pour reconnaître instantanément les produits courants **sans aucune connexion réseau** (0 ms de latence, Green IT).
   2. **API Open Food Facts v2 (Alimentation mondiale)** :
      - Endpoint : `https://world.openfoodfacts.net/api/v2/product/{code_barre}` (avec repli sur `world.openfoodfacts.org/api/v2/product/{code_barre}`).
      - Récupération du nom (`product_name_fr` / `product_name`), de la marque (`brands`), de la quantité/unité (`quantity`), de l'image, du **Nutri-Score** (`nutriscore_grade`), des **ingrédients** et des **allergènes**.
@@ -100,16 +100,19 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   6. **Chomp Food API v2 (Nutrition & Aliments emballés — Dernier recours)** :
      - Endpoint : `https://chompthis.com/api/v2/food/branded/barcode.php?code={code_barre}&api_key={CHOMP_API_KEY}`.
      - Appelée uniquement en dernier recours si aucune base ouverte gratuite ni la base locale n'a trouvé le produit (afin de préserver le forfait gratuit de 1 000 requêtes/mois), lorsque `CHOMP_API_KEY` est renseignée dans `.env`.
-  7. **Interface Scanner & Enrichissement UI (`ScannerScreen.kt` & `ScannerViewModel.kt`)** :
-     - Affichage d'un badge indiquant la source ayant identifié le produit (`Open Food Facts`, `Open Beauty Facts`, `Open Products Facts`, `Inventaire.io`, `Chomp API`, `Base Locale Hors-Ligne`).
-     - Pré-remplissage intelligent de l'unité/contenance, des notes (Nutri-Score, allergènes, auteur/éditeur) et ajout de codes-barres de démonstration multi-catégories (alimentaire, cosmétique, ménager, livre ISBN).
+  7. **Interface Scanner & Enrichissement UI (`ScannerScreen.kt`, `ScannerViewModel.kt` & `web/js/app.js`)** :
+     - Affichage d'un badge indiquant la source ayant identifié le produit (`Open Food Facts`, `Open Beauty Facts`, `Open Products Facts`, `Inventaire.io`, `Chomp API`, `Open-Product-Database`).
+     - Pré-remplissage intelligent de l'unité/contenance, de l'emplacement, des notes (Nutri-Score, allergènes, auteur/éditeur) et ajout de codes-barres de démonstration multi-catégories.
 
 ---
 
 ## 2. Historique des Versions Livrées
 
+- **v0.6.2** :
+  - Livraison de `[BACKLOG-SCANNER-06]` : Lecteur de codes-barres universel Multi-API (Open Food Facts v2, Open Beauty Facts v2, Open Products Facts v2, Inventaire.io ISBN, Chomp Food API v2) et base locale hors-ligne (`Open-Product-Database`) sur Android et Web.
+  - Correctifs de sécurité des dépendances transitives Gradle (`Netty 4.1.139.Final`, `BouncyCastle 1.86`, `Guava 33.7.2-jre`, `JDOM2 2.0.6.1`, `Commons Lang3 3.21.0`, `jose4j 0.9.7`, `HttpClient 4.5.14`, `OkHttp 4.12.0`).
 - **v0.6.1** :
-  - Correction des pipelines CI/CD (`android-build.yml`, `cloudflare-pages.yml` avec `wrangler-action@v3`, signature debug AGP).
+  - Correction des pipelines CI/CD (`android-build.yml`, `cloudflare-pages.yml`, signature debug AGP).
   - Suppression de la boucle de redirection Web et du sous-dossier redondant `web/Needix/` au profit de `https://needix.app/`.
   - Exécution complète de `JURIDIQUE-01`, `CLEANUP-03` et `WEB-05` (passage 100% commercial, retrait de F-Droid/FOSS/Apache 2.0).
   - Correction des bugs logiques Android (`ShoppingRepository.updateStore`, `InventoryRepository.importItems`, restauration JSON câblée, interopérabilité JSON/CSV Android ↔ Web, cycle de vie `BarcodeScanner` / `cameraExecutor`).
