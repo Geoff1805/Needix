@@ -72,23 +72,19 @@ jobs:
       env:
         KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
       run: |
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
         if [ -n "$KEYSTORE_BASE64" ]; then
           echo "Clé de signature de production détectée dans les secrets GitHub."
           echo "$KEYSTORE_BASE64" | base64 -d > release-keystore.jks
           echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/release-keystore.jks" >> $GITHUB_ENV
         else
           echo "Aucun secret de signature : fallback transparent sur debug.keystore local."
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
         fi
 
     - name: Générer le Wrapper Gradle
       run: gradle wrapper
 
     - name: Compiler l'APK Android (Debug)
-      env:
-        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
       run: ./gradlew assembleDebug
 
     - name: Sauvegarder l'APK de vérification
@@ -109,7 +105,7 @@ jobs:
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
       run: |
         echo "Compression des fichiers statiques de la Web App / Landing Page Needix..."
-        tar -czf needix-web-v0.6.0.tar.gz -C web/Needix .
+        tar -czf needix-web-v0.6.0.tar.gz -C web .
 
     - name: Sauvegarder le bundle AAB comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'

@@ -11,7 +11,7 @@ Ce document présente l'architecture et la feuille de route technique pour éten
 - **Réseau** : Retrofit 2.12 + OkHttp + Moshi (Open Food Facts API)
 - **Matériel / Caméra** : CameraX + ML Kit Barcode Scanning
 - **Stockage de Fichiers** : Storage Access Framework (SAF) Android
-- **Web** : Version Web (Wasm/HTML5) sans installation hébergée sur Cloudflare Pages (`/Needix`)
+- **Web** : Version Web (Wasm/HTML5) sans installation hébergée sur Cloudflare Pages (`https://needix.alsteens.net/`)
 
 ---
 
@@ -60,7 +60,7 @@ needix/
 │           └── kotlin/
 │               ├── main.kt
 │               └── export/          # File System Access API
-└── web/                             # Site vitrine & Cloudflare Pages (/Needix)
+└── web/                             # Site vitrine & Cloudflare Pages (needix.alsteens.net)
 ```
 
 ---
@@ -82,5 +82,5 @@ needix/
      - iOS : `AVCaptureSession` + framework `Vision` natif Apple.
 
 3. **Phase 3 : Interface utilisateur Compose partagée**
-   - Adapter les écrans Compose existants (`InventoryScreen`, `ShoppingScreen`, `SupportProjectScreen`, `PaywallScreen`) vers Compose Multiplatform.
+   - Adapter les écrans Compose existants (`InventoryScreen`, `ShoppingScreen`, `SyncScreen`, `PaywallScreen`) vers Compose Multiplatform.
    - Intégrer la vue iOS via `ComposeUIViewController { App() }` dans un projet Xcode.

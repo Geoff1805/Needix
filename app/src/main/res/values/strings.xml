@@ -67,7 +67,7 @@
     <string name="add_to_inventory_action">Ajouter à l\'inventaire</string>
     <string name="restock_action">Réapprovisionner (+1)</string>
 
-    <!-- Sauvegarde & Export Universel FOSS -->
+    <!-- Sauvegarde & Export Universel -->
     <string name="data_backup_title">Sauvegarde &amp; Export Universel</string>
     <string name="export_csv_title">Export CSV Standard</string>
     <string name="export_csv_desc">Fichier tableur universel éditable sur PC/Mac (Excel, LibreOffice, Google Sheets).</string>
@@ -81,30 +81,23 @@
     <string name="import_json_button">Restaurer sauvegarde JSON</string>
     <string name="storage_saf_info">Stockage universel SAF : enregistrez localement ou sur Nextcloud, Drive, carte SD.</string>
 
-    <!-- Modèle Économique Hybride & Dons FOSS -->
-    <string name="support_project_title">Soutenir Needix (FOSS)</string>
-    <string name="support_project_desc">Needix est une application 100% open-source et respectueuse de votre vie privée. Si vous l\'appréciez, vous pouvez soutenir son développement indépendant !</string>
-    <string name="donate_github">GitHub Sponsors</string>
-    <string name="donate_liberapay">Liberapay</string>
-    <string name="donate_kofi">Ko-fi / Buy Me a Coffee</string>
-    <string name="donate_paypal">PayPal</string>
+    <!-- Modèle Commercial (RevenueCat) -->
     <string name="commercial_paywall_title">Needix Premium</string>
     <string name="trial_active_message">Période d\'essai gratuite : %1$d jours restants</string>
     <string name="trial_expired_message">Votre période d\'essai de 14 jours est terminée.</string>
     <string name="subscription_monthly">Abonnement Mensuel (2,99 € / mois)</string>
     <string name="subscription_annual">Abonnement Annuel (19,99 € / an - 2 mois offerts)</string>
     <string name="subscribe_button">S\'abonner</string>
-    <string name="flavor_mode_label">Mode de distribution</string>
-    <string name="flavor_foss_name">FOSS (Libre &amp; Dons)</string>
-    <string name="flavor_commercial_name">Commercial (Essai 14j &amp; Store)</string>
+    <string name="flavor_mode_label">Licence &amp; Abonnement</string>
+    <string name="flavor_commercial_name">Abonnement Needix Premium Actif</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Alertes de stock Needix</string>
     <string name="notification_threshold_title">Stock bas : %1$s</string>
     <string name="notification_threshold_body">Il ne reste que %1$d %2$s (seuil : %3$d). Pensez à en acheter chez %4$s.</string>
 
-    <!-- Site Vitrine & Version Web (Cloudflare Pages) -->
+    <!-- Site Vitrine & Version Web (needix.alsteens.net) -->
     <string name="web_landing_title">Site Vitrine &amp; Web App</string>
-    <string name="web_landing_desc">Accédez au site vitrine et à la version Web sans installation hébergée sur Cloudflare Pages (/Needix). Manipulez vos fichiers JSON en direct via l\'API File System Access.</string>
-    <string name="web_landing_button">Ouvrir la version Web (/Needix)</string>
+    <string name="web_landing_desc">Accédez au site vitrine et à la version Web sans installation sur needix.alsteens.net. Manipulez vos fichiers JSON en direct via l\'API File System Access.</string>
+    <string name="web_landing_button">Ouvrir la version Web (needix.alsteens.net)</string>
 </resources>
