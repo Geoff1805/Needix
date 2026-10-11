@@ -32,7 +32,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Configurer Java 21 (Temurin)
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -62,7 +62,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Configurer Java 21 (Temurin)
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: '21'
         distribution: 'temurin'
