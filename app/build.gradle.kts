@@ -1,12 +1,30 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+}
+
+configurations.configureEach {
+  resolutionStrategy.eachDependency {
+    when {
+      requested.group == "io.netty" &&
+        requested.name != "netty-tcnative-boringssl-static" &&
+        requested.name != "netty-tcnative-classes" -> useVersion("4.1.139.Final")
+      requested.group == "org.bouncycastle" &&
+        requested.name in setOf("bcprov-jdk18on", "bcpkix-jdk18on", "bcutil-jdk18on") -> useVersion("1.86")
+      requested.group == "org.jdom" && requested.name == "jdom2" -> useVersion("2.0.6.1")
+      requested.group == "org.apache.httpcomponents" && requested.name == "httpclient" -> useVersion("4.5.14")
+      requested.group == "org.apache.commons" && requested.name == "commons-lang3" -> useVersion("3.21.0")
+      requested.group == "org.apache.commons" && requested.name == "commons-compress" -> useVersion("1.28.0")
+      requested.group == "commons-io" && requested.name == "commons-io" -> useVersion("2.22.0")
+      requested.group == "org.bitbucket.b_c" && requested.name == "jose4j" -> useVersion("0.9.7")
+      requested.group == "com.google.guava" && requested.name == "guava" -> useVersion("33.7.2-jre")
+      requested.group == "com.google.protobuf" &&
+        requested.name in setOf("protobuf-java", "protobuf-java-util", "protobuf-kotlin") -> useVersion("3.25.9")
+    }
+  }
 }
 
 android {
@@ -21,6 +39,17 @@ android {
   val appVersionCode = versionProps.getProperty("versionCode", "1").toIntOrNull() ?: 1
   val appVersionName = versionProps.getProperty("versionName", "1.0.0")
 
+  val envProps = Properties()
+  val envExampleFile = file("${rootDir}/.env.example")
+  if (envExampleFile.exists()) {
+    envProps.load(envExampleFile.inputStream())
+  }
+  val envFile = file("${rootDir}/.env")
+  if (envFile.exists()) {
+    envProps.load(envFile.inputStream())
+  }
+  val chompApiKey = envProps.getProperty("CHOMP_API_KEY", System.getenv("CHOMP_API_KEY") ?: "")
+
   defaultConfig {
     applicationId = "com.aistudio.inventory.hmtst"
     minSdk = 24
@@ -29,6 +58,7 @@ android {
     versionName = appVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "CHOMP_API_KEY", "\"$chompApiKey\"")
   }
 
   signingConfigs {
@@ -73,22 +103,8 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
-}
-
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
-// Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
-  // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.camera.camera2)
   implementation(libs.androidx.camera.core)
@@ -102,33 +118,18 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
-  // implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
-  // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  // implementation(libs.firebase.auth)
-  // implementation(libs.androidx.credentials)
-  // implementation(libs.androidx.credentials.play.services)
-  // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  debugImplementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
-  // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
