@@ -111,12 +111,29 @@ class InventoryRepository(
         if (replaceAll) {
             inventoryDao.deleteAllInventoryItems()
         }
-        inventoryDao.insertAll(items)
-        // Check if any imported item has 0 quantity
         for (item in items) {
-            if (item.quantity <= 0) {
-                checkAndAddToShoppingList(item)
+            val insertedId = inventoryDao.insertItem(item)
+            val savedItem = if (item.id == 0L) item.copy(id = insertedId) else item
+            if (savedItem.quantity <= 0) {
+                checkAndAddToShoppingList(savedItem)
             }
         }
+    }
+
+    suspend fun importFullBackup(backup: com.example.data.export.FullBackupData, replaceAll: Boolean) {
+        if (replaceAll) {
+            inventoryDao.deleteAllInventoryItems()
+            shoppingDao.deleteAllShoppingItems()
+        }
+        if (backup.categories.isNotEmpty()) {
+            inventoryDao.insertAllCategories(backup.categories)
+        }
+        if (backup.storeTypes.isNotEmpty()) {
+            inventoryDao.insertAllStoreTypes(backup.storeTypes)
+        }
+        if (backup.shoppingItems.isNotEmpty()) {
+            shoppingDao.insertAll(backup.shoppingItems)
+        }
+        importItems(backup.items, replaceAll = false)
     }
 }

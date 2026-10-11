@@ -54,7 +54,6 @@ import com.example.ui.screens.InventoryScreen
 import com.example.ui.screens.PaywallScreen
 import com.example.ui.screens.ScannerScreen
 import com.example.ui.screens.ShoppingScreen
-import com.example.ui.screens.SupportProjectScreen
 import com.example.ui.screens.SyncScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.InventoryViewModel
@@ -71,7 +70,6 @@ enum class AppScreen {
     SHOPPING,
     SCANNER,
     SYNC,
-    SUPPORT,
     PAYWALL
 }
 
@@ -160,12 +158,12 @@ class MainActivity : ComponentActivity() {
                 // Handle back button
                 BackHandler(enabled = currentScreen != AppScreen.INVENTORY) {
                     currentScreen = when (currentScreen) {
-                        AppScreen.SUPPORT, AppScreen.PAYWALL -> AppScreen.SYNC
+                        AppScreen.PAYWALL -> AppScreen.SYNC
                         else -> AppScreen.INVENTORY
                     }
                 }
 
-                // Si accès bloqué sur flavor commercial, forcer l'affichage du Paywall
+                // Si accès bloqué, forcer l'affichage du Paywall
                 if (!hasActiveAccess) {
                     PaywallScreen(
                         billingManager = billingManager,
@@ -177,7 +175,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         bottomBar = {
-                            if (currentScreen != AppScreen.SUPPORT && currentScreen != AppScreen.PAYWALL) {
+                            if (currentScreen != AppScreen.PAYWALL) {
                                 NavigationBar(modifier = Modifier.testTag("bottom_nav_bar")) {
                                     // Tab 1: Inventaire
                                     NavigationBarItem(
@@ -304,7 +302,6 @@ class MainActivity : ComponentActivity() {
                                         onTestNotification = {
                                             NotificationHelper.sendTestNotification(this@MainActivity)
                                         },
-                                        onNavigateToSupport = { currentScreen = AppScreen.SUPPORT },
                                         onNavigateToPaywall = { currentScreen = AppScreen.PAYWALL },
                                         onAddCategory = { name, emoji, color ->
                                             inventoryViewModel.addCategory(name, emoji, color)
@@ -319,11 +316,6 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         }
-                                    )
-                                }
-                                AppScreen.SUPPORT -> {
-                                    SupportProjectScreen(
-                                        onBack = { currentScreen = AppScreen.SYNC }
                                     )
                                 }
                                 AppScreen.PAYWALL -> {

@@ -3,11 +3,9 @@ package com.example.billing
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Abstraction de facturation / monétisation pour isoler l'interface utilisateur
- * des bibliothèques propriétaires (RevenueCat, Google Play Billing, Amazon).
+ * Abstraction de facturation / monétisation commerciale (RevenueCat, Google Play Billing, Amazon).
  */
 interface BillingManager {
-    val isFoss: Boolean
     val isPremium: StateFlow<Boolean>
     val hasActiveAccess: StateFlow<Boolean>
     val trialDaysRemaining: StateFlow<Int>

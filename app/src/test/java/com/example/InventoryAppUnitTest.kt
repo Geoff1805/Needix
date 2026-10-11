@@ -1,7 +1,7 @@
 package com.example
 
+import com.example.billing.BillingRepository
 import com.example.billing.CommercialBillingManager
-import com.example.billing.FossBillingManager
 import com.example.billing.SubscriptionPlan
 import com.example.data.export.SheetsCsvManager
 import com.example.data.export.UniversalExportManager
@@ -73,13 +73,68 @@ class InventoryAppUnitTest {
     }
 
     @Test
-    fun billingManagers_fossAndCommercialLogic() {
-        // Test FOSS: toujours débloqué
-        val fossManager = FossBillingManager()
-        assertTrue("FOSS doit être débloqué d'office", fossManager.hasActiveAccess.value)
-        assertTrue("FOSS doit être premium", fossManager.isPremium.value)
+    fun universalExport_webAppJsonAndLegacyCsvInteroperability() {
+        val webJson = """
+            {
+              "app": "Needix",
+              "version": "1.0.0",
+              "exportDate": "2026-10-11T12:00:00Z",
+              "items": [
+                {
+                  "id": 1,
+                  "name": "Lait Bio",
+                  "category": "Produits laitiers",
+                  "location": "Frigo",
+                  "quantity": 2.0,
+                  "unit": "L",
+                  "minQuantity": 3.0,
+                  "barcode": "3250390112345",
+                  "store": "BioCoop",
+                  "notes": "Bouteille 1L"
+                }
+              ],
+              "shoppingList": [
+                {
+                  "id": 1,
+                  "name": "Café Arabica",
+                  "quantity": 2.0,
+                  "unit": "paquets",
+                  "checked": false,
+                  "store": "Supermarché"
+                }
+              ]
+            }
+        """.trimIndent()
 
-        // Test Commercial: 14 jours d'essai
+        val parsedWebBackup = UniversalExportManager.parseJsonBackup(webJson)
+        assertNotNull(parsedWebBackup)
+        assertEquals(1, parsedWebBackup!!.items.size)
+        assertEquals("Lait Bio", parsedWebBackup.items[0].name)
+        assertEquals("aliments", parsedWebBackup.items[0].categoryId)
+        assertEquals(2, parsedWebBackup.items[0].quantity)
+        assertEquals(3, parsedWebBackup.items[0].minThreshold)
+        assertEquals("bio", parsedWebBackup.items[0].preferredStoreId)
+        assertEquals(1, parsedWebBackup.shoppingItems.size)
+        assertEquals("Café Arabica", parsedWebBackup.shoppingItems[0].name)
+        assertEquals(2, parsedWebBackup.shoppingItems[0].quantityNeeded)
+
+        val webCsv11Cols = "\uFEFFID;Nom;Catégorie;Emplacement;Quantité;Unité;Seuil_Alerte;Date_Péremption;Magasin;Code_Barres;Notes\n" +
+                "1;\"Lait Bio\";\"Produits laitiers\";\"Frigo\";2;\"L\";3;2026-10-18;\"BioCoop\";\"3250390112345\";\"Pack\""
+        val parsedWebCsv = UniversalExportManager.parseCsv(webCsv11Cols)
+        assertEquals(1, parsedWebCsv.size)
+        assertEquals("Lait Bio", parsedWebCsv[0].name)
+        assertEquals("aliments", parsedWebCsv[0].categoryId)
+        assertEquals("Frigo", parsedWebCsv[0].location)
+        assertEquals(2, parsedWebCsv[0].quantity)
+        assertEquals(3, parsedWebCsv[0].minThreshold)
+        assertEquals("bio", parsedWebCsv[0].preferredStoreId)
+    }
+
+    @Test
+    fun billingManagers_commercialLogic() {
+        val repoManager = BillingRepository.activeManager.value
+        assertTrue(repoManager.hasActiveAccess.value)
+
         val commercialManager = CommercialBillingManager(initialTrialDays = 14)
         assertTrue("Commercial doit être actif pendant l'essai", commercialManager.hasActiveAccess.value)
         assertEquals(14, commercialManager.trialDaysRemaining.value)
