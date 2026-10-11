@@ -210,9 +210,11 @@ function initEventListeners() {
   const modalForm = document.getElementById("item-modal-form");
   const modalCancel = document.getElementById("modal-cancel-btn");
   const modalClose = document.getElementById("modal-close-btn");
+  const btnLookupBarcode = document.getElementById("btn-lookup-barcode");
   if (modalForm) modalForm.addEventListener("submit", handleSaveItemForm);
   if (modalCancel) modalCancel.addEventListener("click", closeModal);
   if (modalClose) modalClose.addEventListener("click", closeModal);
+  if (btnLookupBarcode) btnLookupBarcode.addEventListener("click", handleWebBarcodeLookup);
 
   const fallbackInput = document.getElementById("fallback-file-input");
   if (fallbackInput) {
@@ -994,6 +996,173 @@ function handleSaveItemForm(e) {
   closeModal();
   renderWebApp();
   showToast("Article enregistré avec succès !", "success");
+}
+
+// -------------------------------------------------------------
+// Multi-API Barcode Lookup & Offline Open-Product-Database
+// -------------------------------------------------------------
+
+let offlineProductCache = null;
+
+async function getOfflineProductDb() {
+  if (offlineProductCache) return offlineProductCache;
+  try {
+    const res = await fetch("/data/open-product-database.json");
+    if (res.ok) {
+      offlineProductCache = await res.json();
+      return offlineProductCache;
+    }
+  } catch (e) {
+    console.warn("Offline product DB fetch skipped", e);
+  }
+  offlineProductCache = [];
+  return offlineProductCache;
+}
+
+function isIsbnCode(code) {
+  return (code.length === 13 && (code.startsWith("978") || code.startsWith("979"))) ||
+         (code.length === 10 && /^[0-9]{9}[0-9Xx]$/.test(code));
+}
+
+async function lookupOpenFactsEndpoint(baseUrl, barcode, sourceLabel, defaultCategory) {
+  try {
+    const fields = "product_name,product_name_fr,generic_name_fr,brands,quantity,categories_tags,nutriscore_grade,allergens_tags";
+    const res = await fetch(`${baseUrl}/api/v2/product/${encodeURIComponent(barcode)}?fields=${fields}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || data.status !== 1 || !data.product) return null;
+    const p = data.product;
+    const rawName = (p.product_name_fr || p.product_name || p.generic_name_fr || "").trim();
+    if (!rawName) return null;
+    const brand = (p.brands || "").split(",")[0].trim();
+    const fullName = brand && !rawName.toLowerCase().includes(brand.toLowerCase())
+      ? `${rawName} (${brand})`
+      : rawName;
+
+    const tags = (p.categories_tags || []).join(" ").toLowerCase();
+    let category = defaultCategory;
+    if (sourceLabel === "Open Beauty Facts") {
+      category = (tags.includes("pharma") || tags.includes("health")) ? "pharmacie" : "hygiene";
+    } else if (sourceLabel === "Open Products Facts") {
+      if (tags.includes("bricol") || tags.includes("tool") || tags.includes("hardware")) category = "bricolage";
+      else if (tags.includes("hygiene") || tags.includes("beauty")) category = "hygiene";
+      else category = "menager";
+    } else {
+      if (tags.includes("cleaning") || tags.includes("menage") || tags.includes("detergent")) category = "menager";
+      else if (tags.includes("hygiene") || tags.includes("cosmetic") || tags.includes("beauty")) category = "hygiene";
+      else if (tags.includes("pharma") || tags.includes("health")) category = "pharmacie";
+      else if (tags.includes("oil") || tags.includes("spice") || tags.includes("condiment") || tags.includes("coffee")) category = "cuisine";
+    }
+
+    const noteParts = [];
+    if (p.quantity) noteParts.push(p.quantity);
+    if (p.nutriscore_grade && ["a", "b", "c", "d", "e"].includes(p.nutriscore_grade.toLowerCase())) {
+      noteParts.push(`Nutri-Score ${p.nutriscore_grade.toUpperCase()}`);
+    }
+    if (Array.isArray(p.allergens_tags) && p.allergens_tags.length > 0) {
+      const allergens = p.allergens_tags.map(a => a.split(":").pop().replace(/-/g, " ")).join(", ");
+      noteParts.push(`Allergènes : ${allergens}`);
+    }
+
+    return {
+      name: fullName,
+      category,
+      unit: p.quantity || "pièce",
+      notes: noteParts.join(" • "),
+      source: sourceLabel
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function lookupInventaireIsbn(barcode) {
+  try {
+    const res = await fetch(`https://api.inventaire.io/api/entities/by-uris?uris=isbn:${encodeURIComponent(barcode)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entities = data && data.entities ? data.entities : {};
+    const entity = entities[`isbn:${barcode}`] || Object.values(entities)[0];
+    if (!entity) return null;
+    const claims = entity.claims || {};
+    const labels = entity.labels || {};
+    const title = (claims["wdt:P1476"] && claims["wdt:P1476"][0]) || labels.fr || labels.en || Object.values(labels)[0];
+    if (!title) return null;
+    const publisher = (claims["invp:P2"] && claims["invp:P2"][0]) || "";
+    const fullName = publisher ? `${title} (${publisher})` : title;
+    return {
+      name: fullName,
+      category: "autre",
+      unit: "livre",
+      notes: `ISBN ${barcode}${publisher ? " • " + publisher : ""}`,
+      source: "Inventaire.io (ISBN)"
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function handleWebBarcodeLookup() {
+  const barcodeInput = document.getElementById("item-barcode");
+  if (!barcodeInput) return;
+  const cleanCode = barcodeInput.value.trim().replace(/[-\s]/g, "");
+  if (!cleanCode) {
+    showToast("Veuillez saisir un code-barres EAN ou ISBN à identifier", "warning");
+    return;
+  }
+  barcodeInput.value = cleanCode;
+  showToast("Recherche dans les bases produits en cours...", "info");
+
+  // 1. Offline Open-Product-Database
+  const offlineList = await getOfflineProductDb();
+  const offlineHit = offlineList.find(item => item.barcode === cleanCode);
+  let result = null;
+
+  if (offlineHit) {
+    const fullName = offlineHit.brand && !offlineHit.name.toLowerCase().includes(offlineHit.brand.toLowerCase())
+      ? `${offlineHit.name} (${offlineHit.brand})`
+      : offlineHit.name;
+    result = {
+      name: fullName,
+      category: offlineHit.category || "aliments",
+      unit: offlineHit.unit || offlineHit.quantity || "pièce",
+      notes: offlineHit.notes || "",
+      source: "Open-Product-Database (Hors-ligne)"
+    };
+  }
+
+  // 2. Inventaire.io if ISBN
+  if (!result && isIsbnCode(cleanCode)) {
+    result = await lookupInventaireIsbn(cleanCode);
+  }
+
+  // 3. Open Food Facts v2 (.net then .org)
+  if (!result) {
+    result = await lookupOpenFactsEndpoint("https://world.openfoodfacts.net", cleanCode, "Open Food Facts", "aliments") ||
+             await lookupOpenFactsEndpoint("https://world.openfoodfacts.org", cleanCode, "Open Food Facts", "aliments");
+  }
+
+  // 4. Open Beauty Facts v2
+  if (!result) {
+    result = await lookupOpenFactsEndpoint("https://world.openbeautyfacts.org", cleanCode, "Open Beauty Facts", "hygiene");
+  }
+
+  // 5. Open Products Facts v2
+  if (!result) {
+    result = await lookupOpenFactsEndpoint("https://world.openproductsfacts.org", cleanCode, "Open Products Facts", "menager");
+  }
+
+  if (result) {
+    document.getElementById("item-name").value = result.name;
+    document.getElementById("item-category").value = result.category;
+    document.getElementById("item-unit").value = result.unit;
+    if (result.notes) document.getElementById("item-notes").value = result.notes;
+    if (result.category === "hygiene") document.getElementById("item-location").value = "Salle de bain";
+    else if (result.category === "aliments") document.getElementById("item-location").value = "Placard";
+    showToast(`Identifié via ${result.source} : ${result.name}`, "success");
+  } else {
+    showToast("Produit non trouvé dans les bases mondiales. Complétez manuellement.", "warning");
+  }
 }
 
 // -------------------------------------------------------------
