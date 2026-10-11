@@ -54,7 +54,7 @@ jobs:
 
     - name: Sauvegarder les rapports de tests unitaires
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: test-reports
         path: app/build/reports/tests/testDebugUnitTest/
@@ -96,7 +96,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Sauvegarder l'APK de vérification
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
@@ -117,14 +117,14 @@ jobs:
 
     - name: Sauvegarder le bundle AAB comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Release-Bundle-AAB
         path: app/build/outputs/bundle/release/*.aab
 
     - name: Sauvegarder le bundle Web comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Needix-Web-Archive
         path: needix-web-v0.6.0.tar.gz
