@@ -13,7 +13,6 @@ class CommercialBillingManager(
     initialTrialDays: Int = 14,
     initialIsSubscribed: Boolean = false
 ) : BillingManager {
-    override val isFoss: Boolean = false
 
     private val _trialDaysRemaining = MutableStateFlow(initialTrialDays)
     override val trialDaysRemaining: StateFlow<Int> = _trialDaysRemaining.asStateFlow()

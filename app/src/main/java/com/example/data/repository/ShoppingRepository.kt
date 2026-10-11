@@ -36,9 +36,9 @@ class ShoppingRepository(
     }
 
     suspend fun updateStore(id: Long, newStoreId: String) {
+        val item = shoppingDao.getShoppingItemById(id)
         shoppingDao.updateStore(id, newStoreId)
         // Also update preferredStoreId in inventory if linked
-        val item = shoppingDao.getShoppingItemByInventoryId(id)
         if (item?.inventoryItemId != null) {
             val invItem = inventoryDao.getItemById(item.inventoryItemId)
             if (invItem != null) {

@@ -1,12 +1,52 @@
 // Needix Web App Engine (File System Access API & Wasm/HTML5)
-// Gestionnaire d'inventaire 100% local, sans serveur ni vendor lock-in
+// Gestionnaire d'inventaire 100% local, interopérable avec Needix Android (JSON & CSV)
+
+const CATEGORY_MAP = {
+  cuisine: "Cuisine & Épices",
+  aliments: "Aliments & Frais",
+  menager: "Produits Ménagers",
+  hygiene: "Hygiène & Soins",
+  pharmacie: "Pharmacie & Santé",
+  bricolage: "Bricolage & Maison",
+  autre: "Divers"
+};
+
+const STORE_MAP = {
+  supermarket: "Supermarché",
+  pharmacy: "Pharmacie",
+  online: "Internet / En ligne",
+  bio: "Marché / Bio",
+  brico: "Bricolage"
+};
+
+const DEFAULT_CATEGORIES = [
+  { id: "cuisine", name: "Cuisine & Épices", iconEmoji: "🥫", colorHex: 0xFFF59E0B, orderIndex: 0 },
+  { id: "aliments", name: "Aliments & Frais", iconEmoji: "🍎", colorHex: 0xFF10B981, orderIndex: 1 },
+  { id: "menager", name: "Produits Ménagers", iconEmoji: "🧴", colorHex: 0xFF06B6D4, orderIndex: 2 },
+  { id: "hygiene", name: "Hygiène & Soins", iconEmoji: "🧼", colorHex: 0xFF8B5CF6, orderIndex: 3 },
+  { id: "pharmacie", name: "Pharmacie & Santé", iconEmoji: "💊", colorHex: 0xFFEF4444, orderIndex: 4 },
+  { id: "bricolage", name: "Bricolage & Maison", iconEmoji: "🔨", colorHex: 0xFF64748B, orderIndex: 5 },
+  { id: "autre", name: "Divers", iconEmoji: "📦", colorHex: 0xFF6B7280, orderIndex: 6 }
+];
+
+const DEFAULT_STORE_TYPES = [
+  { id: "supermarket", name: "Supermarché", iconEmoji: "🛒", colorHex: 0xFF3B82F6, orderIndex: 0 },
+  { id: "pharmacy", name: "Pharmacie", iconEmoji: "💊", colorHex: 0xFFEF4444, orderIndex: 1 },
+  { id: "online", name: "Internet / En ligne", iconEmoji: "🌐", colorHex: 0xFF8B5CF6, orderIndex: 2 },
+  { id: "bio", name: "Marché / Bio", iconEmoji: "🥦", colorHex: 0xFF10B981, orderIndex: 3 },
+  { id: "brico", name: "Bricolage", iconEmoji: "🔨", colorHex: 0xFFF59E0B, orderIndex: 4 }
+];
 
 let inventoryData = {
   app: "Needix",
+  appVersion: "1.0.0",
   version: "1.0.0",
   exportDate: new Date().toISOString(),
   items: [],
-  shoppingList: []
+  shoppingItems: [],
+  shoppingList: [],
+  categories: DEFAULT_CATEGORIES,
+  storeTypes: DEFAULT_STORE_TYPES
 };
 
 let currentFileHandle = null;
@@ -16,6 +56,113 @@ let activeLocationFilter = "all";
 let searchQuery = "";
 let editingItemId = null;
 
+function resolveCategoryId(catOrId) {
+  if (!catOrId) return "autre";
+  const raw = String(catOrId).trim();
+  if (CATEGORY_MAP[raw]) return raw;
+  const lower = raw.toLowerCase();
+  if (lower.includes("cuisine") || lower.includes("condiment") || lower.includes("boisson")) return "cuisine";
+  if (lower.includes("aliment") || lower.includes("lait") || lower.includes("fruit") || lower.includes("viande") || lower.includes("épicerie")) return "aliments";
+  if (lower.includes("ménag") || lower.includes("menag") || lower.includes("entretien")) return "menager";
+  if (lower.includes("hygi")) return "hygiene";
+  if (lower.includes("pharma") || lower.includes("sant")) return "pharmacie";
+  if (lower.includes("brico")) return "bricolage";
+  return "autre";
+}
+
+function resolveCategoryLabel(catIdOrName) {
+  if (!catIdOrName) return "Divers";
+  const id = resolveCategoryId(catIdOrName);
+  return CATEGORY_MAP[id] || String(catIdOrName);
+}
+
+function resolveStoreId(storeOrId) {
+  if (!storeOrId) return "supermarket";
+  const raw = String(storeOrId).trim();
+  if (STORE_MAP[raw]) return raw;
+  const lower = raw.toLowerCase();
+  if (lower.includes("pharma")) return "pharmacy";
+  if (lower.includes("ligne") || lower.includes("internet") || lower.includes("web")) return "online";
+  if (lower.includes("bio") || lower.includes("marché") || lower.includes("marche")) return "bio";
+  if (lower.includes("brico")) return "brico";
+  return raw;
+}
+
+function resolveStoreLabel(storeIdOrName) {
+  if (!storeIdOrName) return "Supermarché";
+  return STORE_MAP[storeIdOrName] || String(storeIdOrName);
+}
+
+function normalizeItem(it, idx) {
+  const categoryId = resolveCategoryId(it.categoryId || it.category);
+  const category = CATEGORY_MAP[categoryId] || it.category || "Divers";
+  const quantity = Math.max(0, Math.round(Number(it.quantity ?? 1)));
+  const minThreshold = Math.max(0, Math.round(Number(it.minThreshold ?? it.minQuantity ?? 1)));
+  const preferredStoreId = resolveStoreId(it.preferredStoreId || it.store || "supermarket");
+  const store = resolveStoreLabel(it.store || preferredStoreId);
+
+  return {
+    id: Number(it.id) || (idx + 1),
+    name: String(it.name || "").trim(),
+    categoryId,
+    category,
+    quantity,
+    minThreshold,
+    minQuantity: minThreshold,
+    unit: String(it.unit || "pièce").trim(),
+    preferredStoreId,
+    store,
+    barcode: it.barcode ? String(it.barcode).trim() : null,
+    location: String(it.location || "Placard").trim(),
+    expirationDate: it.expirationDate || "",
+    notes: String(it.notes || "").trim(),
+    updatedAt: Number(it.updatedAt) || Date.now()
+  };
+}
+
+function normalizeShoppingItem(sh, idx) {
+  const storeId = resolveStoreId(sh.storeId || sh.store || "supermarket");
+  const quantityNeeded = Math.max(1, Math.round(Number(sh.quantityNeeded ?? sh.quantity ?? 1)));
+  const isPurchased = Boolean(sh.isPurchased ?? sh.checked ?? false);
+  return {
+    id: Number(sh.id) || (idx + 1),
+    inventoryItemId: sh.inventoryItemId != null ? Number(sh.inventoryItemId) : null,
+    name: String(sh.name || "").trim(),
+    categoryId: resolveCategoryId(sh.categoryId || sh.category || "autre"),
+    storeId,
+    store: resolveStoreLabel(sh.store || storeId),
+    quantityNeeded,
+    quantity: quantityNeeded,
+    unit: String(sh.unit || "pièce").trim(),
+    isPurchased,
+    checked: isPurchased,
+    isOnHold: Boolean(sh.isOnHold ?? false),
+    barcode: sh.barcode ? String(sh.barcode).trim() : null,
+    addedAt: Number(sh.addedAt) || Date.now()
+  };
+}
+
+function normalizeBackupObject(raw) {
+  const base = Array.isArray(raw) ? { items: raw } : (raw || {});
+  const items = (Array.isArray(base.items) ? base.items : []).map((it, idx) => normalizeItem(it, idx));
+  const rawShop = Array.isArray(base.shoppingItems)
+    ? base.shoppingItems
+    : (Array.isArray(base.shoppingList) ? base.shoppingList : []);
+  const shoppingItems = rawShop.map((sh, idx) => normalizeShoppingItem(sh, idx));
+
+  return {
+    app: "Needix",
+    appVersion: base.appVersion || base.version || "1.0.0",
+    version: base.version || base.appVersion || "1.0.0",
+    exportDate: base.exportDate || new Date().toISOString(),
+    items,
+    shoppingItems,
+    shoppingList: shoppingItems,
+    categories: Array.isArray(base.categories) && base.categories.length > 0 ? base.categories : DEFAULT_CATEGORIES,
+    storeTypes: Array.isArray(base.storeTypes) && base.storeTypes.length > 0 ? base.storeTypes : DEFAULT_STORE_TYPES
+  };
+}
+
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", () => {
   initEventListeners();
@@ -23,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initEventListeners() {
-  // Tab buttons
   const tabInv = document.getElementById("tab-btn-inv");
   const tabShop = document.getElementById("tab-btn-shop");
   if (tabInv && tabShop) {
@@ -31,7 +177,6 @@ function initEventListeners() {
     tabShop.addEventListener("click", () => switchTab("shopping"));
   }
 
-  // File action buttons
   const btnOpen = document.getElementById("btn-open-file");
   const btnSave = document.getElementById("btn-save-file");
   const btnDownload = document.getElementById("btn-download-json");
@@ -62,7 +207,6 @@ function initEventListeners() {
     });
   }
 
-  // Modal form
   const modalForm = document.getElementById("item-modal-form");
   const modalCancel = document.getElementById("modal-cancel-btn");
   const modalClose = document.getElementById("modal-close-btn");
@@ -70,7 +214,6 @@ function initEventListeners() {
   if (modalCancel) modalCancel.addEventListener("click", closeModal);
   if (modalClose) modalClose.addEventListener("click", closeModal);
 
-  // Hidden file input for fallback
   const fallbackInput = document.getElementById("fallback-file-input");
   if (fallbackInput) {
     fallbackInput.addEventListener("change", handleFallbackFileInput);
@@ -78,17 +221,15 @@ function initEventListeners() {
 }
 
 async function loadInitialState() {
-  // Check if there is saved data in localStorage from previous session
   const cached = localStorage.getItem("needix_cached_inventory");
   if (cached) {
     try {
-      inventoryData = JSON.parse(cached);
+      inventoryData = normalizeBackupObject(JSON.parse(cached));
     } catch (e) {
       console.warn("Could not parse cached inventory", e);
     }
   }
 
-  // If items empty, load sample automatically for pleasant first visit
   if (!inventoryData.items || inventoryData.items.length === 0) {
     await loadSampleData();
   } else {
@@ -97,34 +238,126 @@ async function loadInitialState() {
 }
 
 // -------------------------------------------------------------
-// File System Access API (Standard HTML5)
+// File System Access API & CSV/JSON Interoperability
 // -------------------------------------------------------------
+
+function parseCsvToItems(csvText) {
+  const cleanText = csvText.replace(/^\uFEFF/, "");
+  const lines = cleanText.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length <= 1) return [];
+
+  const headerLine = lines[0];
+  const delimiter = headerLine.includes(";") ? ";" : (headerLine.includes("\t") ? "\t" : ",");
+  const headers = parseCsvRow(headerLine, delimiter).map(h => h.trim().toLowerCase());
+  const isLegacyWebHeader = headers[3] && headers[3].includes("emplacement");
+
+  const parsedItems = [];
+  for (let i = 1; i < lines.length; i++) {
+    const tokens = parseCsvRow(lines[i], delimiter);
+    if (tokens.length < 2) continue;
+    const id = parseInt(tokens[0], 10) || i;
+    const name = (tokens[1] || "").trim();
+    if (!name) continue;
+
+    if (isLegacyWebHeader) {
+      // Legacy 11-col: ID;Nom;Catégorie;Emplacement;Quantité;Unité;Seuil_Alerte;Date_Péremption;Magasin;Code_Barres;Notes
+      parsedItems.push(normalizeItem({
+        id,
+        name,
+        category: tokens[2] || "autre",
+        location: tokens[3] || "Placard",
+        quantity: parseFloat(tokens[4]) || 0,
+        unit: tokens[5] || "pièce",
+        minThreshold: parseFloat(tokens[6]) || 1,
+        expirationDate: tokens[7] || "",
+        store: tokens[8] || "supermarket",
+        barcode: tokens[9] || null,
+        notes: tokens[10] || ""
+      }, i - 1));
+    } else {
+      // Standard 10-col (Android & Web unified): ID,Nom,Categorie,Quantite,SeuilAlerte,Unite,MagasinPrefere,Emplacement,CodeBarre,Notes
+      parsedItems.push(normalizeItem({
+        id,
+        name,
+        categoryId: tokens[2] || "autre",
+        quantity: parseFloat(tokens[3]) || 0,
+        minThreshold: parseFloat(tokens[4]) || 1,
+        unit: tokens[5] || "pièce",
+        preferredStoreId: tokens[6] || "supermarket",
+        location: tokens[7] || "Placard",
+        barcode: tokens[8] || null,
+        notes: tokens[9] || ""
+      }, i - 1));
+    }
+  }
+  return parsedItems;
+}
+
+function parseCsvRow(line, delimiter) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === delimiter && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += c;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function loadContentFromString(text, fileName, handle = null) {
+  const trimmed = text.replace(/^\uFEFF/, "").trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed.items) || Array.isArray(parsed)) {
+      inventoryData = normalizeBackupObject(parsed);
+    } else {
+      throw new Error("Format JSON invalide. Structure attendue : { items: [...] }");
+    }
+  } else {
+    const items = parseCsvToItems(trimmed);
+    if (items.length === 0) {
+      throw new Error("Aucun article valide trouvé dans le fichier CSV.");
+    }
+    inventoryData = normalizeBackupObject({ items });
+  }
+
+  currentFileHandle = handle;
+  hasUnsavedChanges = false;
+  updateFileStatusBadge(fileName);
+  persistLocalBackup();
+  renderWebApp();
+  showToast(t("file_connected") + " " + fileName, "success");
+}
 
 async function handleOpenFile() {
   if ("showOpenFilePicker" in window) {
     try {
       const [handle] = await window.showOpenFilePicker({
         types: [{
-          description: "Fichier Inventaire Needix (*.json)",
-          accept: { "application/json": [".json"] }
+          description: "Fichier Inventaire Needix (*.json, *.csv)",
+          accept: {
+            "application/json": [".json"],
+            "text/csv": [".csv"]
+          }
         }],
         multiple: false
       });
       const file = await handle.getFile();
       const text = await file.text();
-      const parsed = JSON.parse(text);
-
-      if (Array.isArray(parsed.items) || Array.isArray(parsed)) {
-        inventoryData = Array.isArray(parsed) ? { app: "Needix", version: "1.0.0", items: parsed, shoppingList: [] } : parsed;
-        currentFileHandle = handle;
-        hasUnsavedChanges = false;
-        updateFileStatusBadge(file.name);
-        persistLocalBackup();
-        renderWebApp();
-        showToast(t("file_connected") + " " + file.name, "success");
-      } else {
-        showToast("Format JSON invalide. Structure attendue : { items: [...] }", "error");
-      }
+      loadContentFromString(text, file.name, file.name.endsWith(".json") ? handle : null);
     } catch (err) {
       if (err.name !== "AbortError") {
         console.error("Erreur ouverture fichier:", err);
@@ -132,7 +365,6 @@ async function handleOpenFile() {
       }
     }
   } else {
-    // Fallback using standard HTML input
     const fallbackInput = document.getElementById("fallback-file-input");
     if (fallbackInput) fallbackInput.click();
   }
@@ -144,24 +376,25 @@ async function handleFallbackFileInput(e) {
   const reader = new FileReader();
   reader.onload = (event) => {
     try {
-      const parsed = JSON.parse(event.target.result);
-      inventoryData = Array.isArray(parsed) ? { app: "Needix", version: "1.0.0", items: parsed, shoppingList: [] } : parsed;
-      currentFileHandle = null;
-      hasUnsavedChanges = false;
-      updateFileStatusBadge(file.name + " (Navigateur)");
-      persistLocalBackup();
-      renderWebApp();
-      showToast(t("file_connected") + " " + file.name, "success");
+      loadContentFromString(event.target.result, file.name + " (Navigateur)", null);
     } catch (err) {
-      showToast("Erreur de lecture du fichier JSON", "error");
+      showToast("Erreur de lecture du fichier : " + err.message, "error");
     }
   };
   reader.readAsText(file);
 }
 
+function prepareExportPayload() {
+  inventoryData.exportDate = new Date().toISOString().replace("T", " ").slice(0, 19);
+  inventoryData.appVersion = "1.0.0";
+  inventoryData.items = (inventoryData.items || []).map((it, idx) => normalizeItem(it, idx));
+  inventoryData.shoppingItems = (inventoryData.shoppingItems || inventoryData.shoppingList || []).map((sh, idx) => normalizeShoppingItem(sh, idx));
+  inventoryData.shoppingList = inventoryData.shoppingItems;
+  return JSON.stringify(inventoryData, null, 2);
+}
+
 async function handleSaveFile() {
-  inventoryData.exportDate = new Date().toISOString();
-  const content = JSON.stringify(inventoryData, null, 2);
+  const content = prepareExportPayload();
 
   if (currentFileHandle && "createWritable" in currentFileHandle) {
     try {
@@ -178,11 +411,10 @@ async function handleSaveFile() {
     }
   }
 
-  // If no file handle or save as new file
   if ("showSaveFilePicker" in window) {
     try {
       const handle = await window.showSaveFilePicker({
-        suggestedName: "needix_inventaire.json",
+        suggestedName: "needix_backup.json",
         types: [{
           description: "Fichier Inventaire Needix (*.json)",
           accept: { "application/json": [".json"] }
@@ -204,24 +436,30 @@ async function handleSaveFile() {
       }
     }
   } else {
-    // Fallback: standard download
     handleDownloadJson();
   }
 }
 
 function handleDownloadJson() {
-  inventoryData.exportDate = new Date().toISOString();
-  const content = JSON.stringify(inventoryData, null, 2);
+  const content = prepareExportPayload();
   const blob = new Blob([content], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `needix_inventaire_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `needix_backup_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   hasUnsavedChanges = false;
   updateSaveStatus();
   showToast("Fichier JSON téléchargé !", "success");
+}
+
+function escapeCsvField(val) {
+  const str = String(val ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
 }
 
 function handleExportCsv() {
@@ -231,61 +469,58 @@ function handleExportCsv() {
     return;
   }
 
-  let csv = "ID;Nom;Catégorie;Emplacement;Quantité;Unité;Seuil_Alerte;Date_Péremption;Magasin;Code_Barres;Notes\n";
-  items.forEach(it => {
+  // Standard 10-column header shared with Android UniversalExportManager & SheetsCsvManager
+  let csv = "ID,Nom,Categorie,Quantite,SeuilAlerte,Unite,MagasinPrefere,Emplacement,CodeBarre,Notes\n";
+  items.forEach((raw, idx) => {
+    const it = normalizeItem(raw, idx);
     const row = [
-      it.id || "",
-      `"${(it.name || "").replace(/"/g, '""')}"`,
-      `"${(it.category || "").replace(/"/g, '""')}"`,
-      `"${(it.location || "").replace(/"/g, '""')}"`,
-      it.quantity ?? 0,
-      `"${(it.unit || "").replace(/"/g, '""')}"`,
-      it.minQuantity ?? 1,
-      it.expirationDate || "",
-      `"${(it.store || "").replace(/"/g, '""')}"`,
-      `"${(it.barcode || "").replace(/"/g, '""')}"`,
-      `"${(it.notes || "").replace(/"/g, '""')}"`
+      escapeCsvField(it.id),
+      escapeCsvField(it.name),
+      escapeCsvField(it.categoryId),
+      it.quantity,
+      it.minThreshold,
+      escapeCsvField(it.unit),
+      escapeCsvField(it.preferredStoreId),
+      escapeCsvField(it.location),
+      escapeCsvField(it.barcode || ""),
+      escapeCsvField(it.notes)
     ];
-    csv += row.join(";") + "\n";
+    csv += row.join(",") + "\n";
   });
 
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `needix_export_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `needix_inventaire_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast("Export CSV généré avec succès !", "success");
+  showToast("Export CSV standard généré avec succès !", "success");
 }
 
 async function loadSampleData() {
   try {
     const res = await fetch("/sample-inventory.json");
     if (res.ok) {
-      inventoryData = await res.json();
+      const data = await res.json();
+      inventoryData = normalizeBackupObject(data);
     } else {
       throw new Error("Local sample json not reachable");
     }
   } catch (e) {
-    // Fallback embedded sample
-    inventoryData = {
-      app: "Needix",
-      version: "1.0.0",
-      exportDate: new Date().toISOString(),
+    inventoryData = normalizeBackupObject({
       items: [
-        { id: 1, name: "Lait demi-écrémé Bio", category: "Produits laitiers", location: "Frigo", quantity: 2, unit: "L", minQuantity: 2, expirationDate: "2026-10-18", barcode: "3250390112345", store: "BioCoop", notes: "Pack 1L" },
-        { id: 2, name: "Yaourt nature fermier", category: "Produits laitiers", location: "Frigo", quantity: 4, unit: "pots", minQuantity: 4, expirationDate: "2026-10-13", barcode: "3155250004321", store: "Supermarché", notes: "Péremption imminente !" },
-        { id: 3, name: "Pâtes Penne Rigate", category: "Épicerie salée", location: "Placard", quantity: 3, unit: "paquets", minQuantity: 2, expirationDate: "2027-04-20", barcode: "8001250123456", store: "Supermarché", notes: "500g" },
-        { id: 4, name: "Huile d'olive extra", category: "Condiments & Huiles", location: "Placard", quantity: 1, unit: "L", minQuantity: 1, expirationDate: "2027-08-15", barcode: "8410250987654", store: "Épicerie locale", notes: "Première pression" },
-        { id: 5, name: "Steaks hachés pur bœuf", category: "Viandes & Poissons", location: "Congélateur", quantity: 6, unit: "pièces", minQuantity: 4, expirationDate: "2026-12-30", barcode: "3560070119988", store: "Boucherie", notes: "15% MG" },
-        { id: 6, name: "Café moulu arabica", category: "Boissons & Café", location: "Placard", quantity: 0, unit: "paquet", minQuantity: 1, expirationDate: "2027-01-10", barcode: "3017760000123", store: "Torréfacteur", notes: "En rupture" }
+        { id: 1, name: "Lait demi-écrémé Bio", categoryId: "aliments", location: "Frigo", quantity: 2, unit: "L", minThreshold: 2, expirationDate: "2026-10-18", barcode: "3250390112345", preferredStoreId: "bio", notes: "Pack 1L" },
+        { id: 2, name: "Yaourt nature fermier", categoryId: "aliments", location: "Frigo", quantity: 4, unit: "pots", minThreshold: 4, expirationDate: "2026-10-13", barcode: "3155250004321", preferredStoreId: "supermarket", notes: "Péremption imminente !" },
+        { id: 3, name: "Pâtes Penne Rigate", categoryId: "aliments", location: "Placard", quantity: 3, unit: "paquets", minThreshold: 2, expirationDate: "2027-04-20", barcode: "8001250123456", preferredStoreId: "supermarket", notes: "500g" },
+        { id: 4, name: "Huile d'olive extra", categoryId: "cuisine", location: "Placard", quantity: 1, unit: "L", minThreshold: 1, expirationDate: "2027-08-15", barcode: "8410250987654", preferredStoreId: "bio", notes: "Première pression" },
+        { id: 5, name: "Steaks hachés pur bœuf", categoryId: "aliments", location: "Congélateur", quantity: 6, unit: "pièces", minThreshold: 4, expirationDate: "2026-12-30", barcode: "3560070119988", preferredStoreId: "supermarket", notes: "15% MG" },
+        { id: 6, name: "Café moulu arabica", categoryId: "cuisine", location: "Placard", quantity: 0, unit: "paquet", minThreshold: 1, expirationDate: "2027-01-10", barcode: "3017760000123", preferredStoreId: "supermarket", notes: "En rupture" }
       ],
-      shoppingList: [
-        { id: 1, name: "Café moulu arabica", quantity: 2, unit: "paquets", checked: false, store: "Torréfacteur" },
-        { id: 2, name: "Beurre doux AOP", quantity: 1, unit: "plaquette", checked: false, store: "BioCoop" }
+      shoppingItems: [
+        { id: 1, inventoryItemId: 6, name: "Café moulu arabica", categoryId: "cuisine", storeId: "supermarket", quantityNeeded: 2, unit: "paquets", isPurchased: false }
       ]
-    };
+    });
   }
   currentFileHandle = null;
   hasUnsavedChanges = false;
@@ -326,7 +561,8 @@ function updateStats() {
   const now = new Date();
 
   items.forEach(it => {
-    if (it.quantity <= (it.minQuantity || 1)) lowStock++;
+    const min = it.minThreshold ?? it.minQuantity ?? 1;
+    if (it.quantity <= min) lowStock++;
     if (it.expirationDate) {
       const exp = new Date(it.expirationDate);
       const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
@@ -350,7 +586,7 @@ function updateStats() {
 function updateFileStatusBadge(fileName) {
   const badge = document.getElementById("file-status-badge");
   if (badge) {
-    badge.innerHTML = `<span class="status-dot online"></span> ${t("file_connected")} : <strong>${fileName}</strong>`;
+    badge.innerHTML = `<span class="status-dot online"></span> ${t("file_connected")} : <strong>${escapeHtml(fileName)}</strong>`;
   }
 }
 
@@ -392,15 +628,15 @@ function renderInventory() {
 
   const items = inventoryData.items || [];
   const filtered = items.filter(it => {
-    // Location filter
     if (activeLocationFilter !== "all" && it.location !== activeLocationFilter) {
       return false;
     }
-    // Search query
     if (searchQuery) {
+      const catLabel = resolveCategoryLabel(it.categoryId || it.category);
+      const storeLabel = resolveStoreLabel(it.preferredStoreId || it.store);
       const matchName = (it.name || "").toLowerCase().includes(searchQuery);
-      const matchCat = (it.category || "").toLowerCase().includes(searchQuery);
-      const matchStore = (it.store || "").toLowerCase().includes(searchQuery);
+      const matchCat = catLabel.toLowerCase().includes(searchQuery);
+      const matchStore = storeLabel.toLowerCase().includes(searchQuery);
       const matchBarcode = (it.barcode || "").includes(searchQuery);
       return matchName || matchCat || matchStore || matchBarcode;
     }
@@ -422,7 +658,6 @@ function renderInventory() {
   let html = `<div class="items-grid">`;
 
   filtered.forEach(it => {
-    // Expiration status
     let expBadge = "";
     if (it.expirationDate) {
       const exp = new Date(it.expirationDate);
@@ -434,22 +669,24 @@ function renderInventory() {
       } else if (diffDays <= 7) {
         expBadge = `<span class="badge warning">${diffDays} jours</span>`;
       } else {
-        expBadge = `<span class="badge neutral">${it.expirationDate}</span>`;
+        expBadge = `<span class="badge neutral">${escapeHtml(it.expirationDate)}</span>`;
       }
     } else {
       expBadge = `<span class="badge muted">Non renseignée</span>`;
     }
 
-    // Stock alert
-    const isLowStock = it.quantity <= (it.minQuantity || 1);
+    const min = it.minThreshold ?? it.minQuantity ?? 1;
+    const isLowStock = it.quantity <= min;
     const stockClass = isLowStock ? "low-stock" : "";
+    const catLabel = resolveCategoryLabel(it.categoryId || it.category);
+    const storeLabel = resolveStoreLabel(it.store || it.preferredStoreId);
 
     html += `
       <div class="item-card ${stockClass}">
         <div class="card-header">
           <div>
-            <span class="location-chip ${getLocationClass(it.location)}">${it.location || "Maison"}</span>
-            <span class="category-chip">${it.category || "Divers"}</span>
+            <span class="location-chip ${getLocationClass(it.location)}">${escapeHtml(it.location || "Maison")}</span>
+            <span class="category-chip">${escapeHtml(catLabel)}</span>
           </div>
           ${expBadge}
         </div>
@@ -457,7 +694,7 @@ function renderInventory() {
         ${it.notes ? `<p class="item-notes">${escapeHtml(it.notes)}</p>` : ""}
         
         <div class="card-meta">
-          ${it.store ? `<span class="meta-item">🏪 ${escapeHtml(it.store)}</span>` : ""}
+          ${storeLabel ? `<span class="meta-item">🏪 ${escapeHtml(storeLabel)}</span>` : ""}
           ${it.barcode ? `<span class="meta-item">🔍 ${escapeHtml(it.barcode)}</span>` : ""}
         </div>
 
@@ -465,13 +702,13 @@ function renderInventory() {
           <button class="qty-btn" onclick="updateItemQuantity(${it.id}, -1)" title="Diminuer">-</button>
           <div class="qty-display">
             <span class="qty-num">${it.quantity}</span>
-            <span class="qty-unit">${escapeHtml(it.unit || "pièce(s)")}</span>
+            <span class="qty-unit">${escapeHtml(it.unit || "pièce")}</span>
           </div>
           <button class="qty-btn" onclick="updateItemQuantity(${it.id}, 1)" title="Augmenter">+</button>
         </div>
 
         <div class="card-footer">
-          <span class="min-threshold">Seuil alerte : ${it.minQuantity || 1}</span>
+          <span class="min-threshold">Seuil alerte : ${min}</span>
           <div class="action-buttons">
             <button class="icon-btn edit-btn" onclick="openEditModal(${it.id})" title="Modifier">✏️</button>
             <button class="icon-btn delete-btn" onclick="deleteItem(${it.id})" title="Supprimer">🗑️</button>
@@ -501,27 +738,33 @@ function generateComputedShoppingList() {
   const needed = [];
 
   items.forEach(it => {
-    const min = it.minQuantity || 1;
+    const min = it.minThreshold ?? it.minQuantity ?? 1;
     if (it.quantity <= min) {
       const deficit = Math.max(1, min * 2 - it.quantity);
+      const storeLabel = resolveStoreLabel(it.store || it.preferredStoreId);
       needed.push({
         id: it.id,
+        inventoryItemId: it.id,
         name: it.name,
+        categoryId: it.categoryId || "autre",
+        storeId: it.preferredStoreId || "supermarket",
+        store: storeLabel,
+        quantityNeeded: deficit,
         quantity: deficit,
-        unit: it.unit || "pièce(s)",
-        store: it.store || "Supermarché",
+        unit: it.unit || "pièce",
         currentQty: it.quantity,
         minQty: min,
+        isPurchased: false,
         checked: false
       });
     }
   });
 
-  // Merge with custom entries in inventoryData.shoppingList
-  if (Array.isArray(inventoryData.shoppingList)) {
-    inventoryData.shoppingList.forEach(custom => {
-      if (!needed.some(n => n.name.toLowerCase() === custom.name.toLowerCase())) {
-        needed.push(custom);
+  const savedList = inventoryData.shoppingItems || inventoryData.shoppingList || [];
+  if (Array.isArray(savedList)) {
+    savedList.forEach(custom => {
+      if (!needed.some(n => n.name.toLowerCase() === (custom.name || "").toLowerCase())) {
+        needed.push(normalizeShoppingItem(custom, needed.length));
       }
     });
   }
@@ -546,10 +789,9 @@ function renderShoppingList() {
     return;
   }
 
-  // Group by store
   const grouped = {};
   list.forEach(it => {
-    const s = it.store || "Divers / Tout magasin";
+    const s = resolveStoreLabel(it.store || it.storeId);
     if (!grouped[s]) grouped[s] = [];
     grouped[s].push(it);
   });
@@ -567,18 +809,20 @@ function renderShoppingList() {
     `;
 
     storeItems.forEach(it => {
+      const qty = it.quantityNeeded ?? it.quantity ?? 1;
+      const isChecked = it.isPurchased ?? it.checked ?? false;
       html += `
-        <li class="shopping-item-row ${it.checked ? "checked" : ""}">
+        <li class="shopping-item-row ${isChecked ? "checked" : ""}">
           <label class="checkbox-container">
-            <input type="checkbox" ${it.checked ? "checked" : ""} onchange="toggleShoppingItem(${it.id})">
+            <input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleShoppingItem(${it.id})">
             <span class="checkmark"></span>
             <span class="shop-name">${escapeHtml(it.name)}</span>
           </label>
           <div class="shop-qty-badge">
-            À acheter : <strong>${it.quantity} ${escapeHtml(it.unit || "")}</strong>
+            À acheter : <strong>${qty} ${escapeHtml(it.unit || "")}</strong>
             ${it.currentQty !== undefined ? `<small class="text-muted">(en stock: ${it.currentQty})</small>` : ""}
           </div>
-          <button class="btn-restock" onclick="quickRestock(${it.id}, ${it.quantity})" title="Marquer comme acheté et réapprovisionner l'inventaire">
+          <button class="btn-restock" onclick="quickRestock(${it.inventoryItemId || it.id}, ${qty})" title="Marquer comme acheté et réapprovisionner l'inventaire">
             + Restocker
           </button>
         </li>
@@ -602,7 +846,8 @@ function renderShoppingList() {
 function updateItemQuantity(id, delta) {
   const it = inventoryData.items.find(x => x.id === id);
   if (!it) return;
-  it.quantity = Math.max(0, (it.quantity || 0) + delta);
+  it.quantity = Math.max(0, Math.round((it.quantity || 0) + delta));
+  it.updatedAt = Date.now();
   hasUnsavedChanges = true;
   persistLocalBackup();
   renderWebApp();
@@ -611,7 +856,8 @@ function updateItemQuantity(id, delta) {
 function quickRestock(id, qtyToAdd) {
   const it = inventoryData.items.find(x => x.id === id);
   if (it) {
-    it.quantity = (it.quantity || 0) + (qtyToAdd || 1);
+    it.quantity = Math.round((it.quantity || 0) + (qtyToAdd || 1));
+    it.updatedAt = Date.now();
     hasUnsavedChanges = true;
     persistLocalBackup();
     renderWebApp();
@@ -620,9 +866,11 @@ function quickRestock(id, qtyToAdd) {
 }
 
 function toggleShoppingItem(id) {
-  const custom = (inventoryData.shoppingList || []).find(x => x.id === id);
+  const list = inventoryData.shoppingItems || inventoryData.shoppingList || [];
+  const custom = list.find(x => x.id === id);
   if (custom) {
-    custom.checked = !custom.checked;
+    custom.isPurchased = !custom.isPurchased;
+    custom.checked = custom.isPurchased;
     hasUnsavedChanges = true;
     persistLocalBackup();
     renderShoppingList();
@@ -643,13 +891,13 @@ function openAddModal() {
   document.getElementById("modal-title").textContent = t("add_modal_title");
   document.getElementById("modal-item-id").value = "";
   document.getElementById("item-name").value = "";
-  document.getElementById("item-category").value = "Épicerie salée";
+  document.getElementById("item-category").value = "aliments";
   document.getElementById("item-location").value = "Placard";
   document.getElementById("item-quantity").value = "1";
   document.getElementById("item-min-quantity").value = "1";
-  document.getElementById("item-unit").value = "pièce(s)";
+  document.getElementById("item-unit").value = "pièce";
   document.getElementById("item-expiry").value = "";
-  document.getElementById("item-store").value = "";
+  document.getElementById("item-store").value = "Supermarché";
   document.getElementById("item-barcode").value = "";
   document.getElementById("item-notes").value = "";
 
@@ -664,13 +912,13 @@ function openEditModal(id) {
   document.getElementById("modal-title").textContent = t("edit_modal_title");
   document.getElementById("modal-item-id").value = it.id;
   document.getElementById("item-name").value = it.name || "";
-  document.getElementById("item-category").value = it.category || "Divers";
+  document.getElementById("item-category").value = resolveCategoryId(it.categoryId || it.category);
   document.getElementById("item-location").value = it.location || "Placard";
   document.getElementById("item-quantity").value = it.quantity ?? 1;
-  document.getElementById("item-min-quantity").value = it.minQuantity ?? 1;
-  document.getElementById("item-unit").value = it.unit || "pièce(s)";
+  document.getElementById("item-min-quantity").value = it.minThreshold ?? it.minQuantity ?? 1;
+  document.getElementById("item-unit").value = it.unit || "pièce";
   document.getElementById("item-expiry").value = it.expirationDate || "";
-  document.getElementById("item-store").value = it.store || "";
+  document.getElementById("item-store").value = resolveStoreLabel(it.store || it.preferredStoreId);
   document.getElementById("item-barcode").value = it.barcode || "";
   document.getElementById("item-notes").value = it.notes || "";
 
@@ -689,46 +937,55 @@ function handleSaveItemForm(e) {
     return;
   }
 
-  const category = document.getElementById("item-category").value;
+  const categoryId = resolveCategoryId(document.getElementById("item-category").value);
+  const category = resolveCategoryLabel(categoryId);
   const location = document.getElementById("item-location").value;
-  const quantity = parseFloat(document.getElementById("item-quantity").value) || 0;
-  const minQuantity = parseFloat(document.getElementById("item-min-quantity").value) || 1;
-  const unit = document.getElementById("item-unit").value.trim() || "pièce(s)";
+  const quantity = Math.max(0, Math.round(parseFloat(document.getElementById("item-quantity").value) || 0));
+  const minThreshold = Math.max(0, Math.round(parseFloat(document.getElementById("item-min-quantity").value) || 1));
+  const unit = document.getElementById("item-unit").value.trim() || "pièce";
   const expirationDate = document.getElementById("item-expiry").value || "";
-  const store = document.getElementById("item-store").value.trim();
-  const barcode = document.getElementById("item-barcode").value.trim();
+  const rawStore = document.getElementById("item-store").value.trim() || "Supermarché";
+  const preferredStoreId = resolveStoreId(rawStore);
+  const store = resolveStoreLabel(rawStore);
+  const barcode = document.getElementById("item-barcode").value.trim() || null;
   const notes = document.getElementById("item-notes").value.trim();
 
   if (editingItemId) {
-    // Edit existing
     const it = inventoryData.items.find(x => x.id === editingItemId);
     if (it) {
       it.name = name;
+      it.categoryId = categoryId;
       it.category = category;
       it.location = location;
       it.quantity = quantity;
-      it.minQuantity = minQuantity;
+      it.minThreshold = minThreshold;
+      it.minQuantity = minThreshold;
       it.unit = unit;
       it.expirationDate = expirationDate;
+      it.preferredStoreId = preferredStoreId;
       it.store = store;
       it.barcode = barcode;
       it.notes = notes;
+      it.updatedAt = Date.now();
     }
   } else {
-    // Add new
     const nextId = (inventoryData.items.length > 0) ? Math.max(...inventoryData.items.map(x => x.id || 0)) + 1 : 1;
     inventoryData.items.push({
       id: nextId,
       name,
+      categoryId,
       category,
       location,
       quantity,
-      minQuantity,
+      minThreshold,
+      minQuantity: minThreshold,
       unit,
       expirationDate,
+      preferredStoreId,
       store,
       barcode,
-      notes
+      notes,
+      updatedAt: Date.now()
     });
   }
 

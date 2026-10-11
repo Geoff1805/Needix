@@ -263,14 +263,36 @@ class InventoryViewModel(
     fun importCsv(context: Context, uri: Uri, replaceAll: Boolean, onComplete: (Int) -> Unit) {
         viewModelScope.launch {
             try {
-                val parsedItems = SheetsCsvManager.parseCsvFromUri(context, uri)
-                if (parsedItems.isNotEmpty()) {
-                    repository.importItems(parsedItems, replaceAll)
-                    _uiEvents.emit("${parsedItems.size} articles importés avec succès")
-                    onComplete(parsedItems.size)
-                } else {
-                    _uiEvents.emit("Aucun article valide trouvé dans le fichier")
+                val rawContent = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                }?.removePrefix("\uFEFF")?.trim()
+
+                if (rawContent.isNullOrBlank()) {
+                    _uiEvents.emit("Fichier vide ou illisible")
                     onComplete(0)
+                    return@launch
+                }
+
+                if (rawContent.startsWith("{") || rawContent.startsWith("[")) {
+                    val backup = com.example.data.export.UniversalExportManager.parseJsonBackup(rawContent)
+                    if (backup != null && (backup.items.isNotEmpty() || backup.shoppingItems.isNotEmpty())) {
+                        repository.importFullBackup(backup, replaceAll)
+                        _uiEvents.emit("${backup.items.size} articles restaurés depuis la sauvegarde JSON")
+                        onComplete(backup.items.size)
+                    } else {
+                        _uiEvents.emit("Aucun article valide trouvé dans la sauvegarde JSON")
+                        onComplete(0)
+                    }
+                } else {
+                    val parsedItems = com.example.data.export.UniversalExportManager.parseCsv(rawContent)
+                    if (parsedItems.isNotEmpty()) {
+                        repository.importItems(parsedItems, replaceAll)
+                        _uiEvents.emit("${parsedItems.size} articles importés avec succès")
+                        onComplete(parsedItems.size)
+                    } else {
+                        _uiEvents.emit("Aucun article valide trouvé dans le fichier")
+                        onComplete(0)
+                    }
                 }
             } catch (e: Exception) {
                 _uiEvents.emit("Erreur lors de l'import: ${e.message}")

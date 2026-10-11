@@ -78,7 +78,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.billing.BillingRepository
-import com.example.billing.DistributionFlavor
 import com.example.data.export.AndroidStorageManager
 import com.example.data.export.UniversalExportManager
 import com.example.data.model.CategoryEntity
@@ -100,7 +99,6 @@ fun SyncScreen(
     notificationsEnabled: Boolean = true,
     onToggleNotifications: (Boolean) -> Unit = {},
     onTestNotification: (() -> Unit)? = null,
-    onNavigateToSupport: () -> Unit = {},
     onNavigateToPaywall: () -> Unit = {},
     onAddCategory: (String, String, Long) -> Unit,
     onAddStoreType: (String, String, Long) -> Unit,
@@ -110,7 +108,6 @@ fun SyncScreen(
     val scope = rememberCoroutineScope()
     val storageManager = remember { AndroidStorageManager() }
 
-    val currentFlavor by BillingRepository.currentFlavor.collectAsStateWithLifecycle()
     val billingManager by BillingRepository.activeManager.collectAsStateWithLifecycle()
     val isPremium by billingManager.isPremium.collectAsStateWithLifecycle()
     val trialDays by billingManager.trialDaysRemaining.collectAsStateWithLifecycle()
@@ -185,7 +182,7 @@ fun SyncScreen(
             )
         }
 
-        // Section Modèle Hybride & Variantes
+        // Section Abonnement & Licence Commerciale (RevenueCat)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -209,85 +206,41 @@ fun SyncScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (currentFlavor == DistributionFlavor.FOSS) Icons.Default.Favorite else Icons.Default.Star,
+                            imageVector = Icons.Default.Star,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.flavor_mode_label),
+                            text = stringResource(R.string.commercial_paywall_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (currentFlavor == DistributionFlavor.FOSS) {
-                                stringResource(R.string.flavor_foss_name)
-                            } else {
+                            text = if (isPremium) {
                                 stringResource(R.string.flavor_commercial_name)
+                            } else {
+                                stringResource(R.string.trial_active_message, trialDays)
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // Bouton d'accès selon la variante
-                    if (currentFlavor == DistributionFlavor.FOSS) {
-                        FilledTonalButton(
-                            onClick = onNavigateToSupport,
-                            modifier = Modifier.testTag("open_support_button")
-                        ) {
-                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFEA4AAA), modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Dons")
-                        }
-                    } else {
-                        FilledTonalButton(
-                            onClick = onNavigateToPaywall,
-                            modifier = Modifier.testTag("open_paywall_button")
-                        ) {
-                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(if (isPremium) "Abonné" else "Essai 14j")
-                        }
-                    }
-                }
-
-                // Switcher de démonstration
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Tester la variante :",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { BillingRepository.setFlavor(DistributionFlavor.FOSS) },
-                            colors = if (currentFlavor == DistributionFlavor.FOSS) ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)) else ButtonDefaults.outlinedButtonColors(),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Text("F-Droid FOSS", fontSize = 11.sp)
-                        }
-                        OutlinedButton(
-                            onClick = { BillingRepository.setFlavor(DistributionFlavor.COMMERCIAL) },
-                            colors = if (currentFlavor == DistributionFlavor.COMMERCIAL) ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)) else ButtonDefaults.outlinedButtonColors(),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Text("Play Store", fontSize = 11.sp)
-                        }
+                    FilledTonalButton(
+                        onClick = onNavigateToPaywall,
+                        modifier = Modifier.testTag("open_paywall_button")
+                    ) {
+                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (isPremium) "Abonné" else "Essai 14j")
                     }
                 }
             }
         }
 
-        // Section Site Vitrine & Web App Cloudflare Pages
+        // Section Site Vitrine & Web App (needix.app)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth().testTag("web_landing_card"),
             shape = RoundedCornerShape(20.dp),
@@ -324,7 +277,7 @@ fun SyncScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Cloudflare Pages (/Needix) • Wasm & File System API",
+                            text = "needix.app • Wasm & File System API",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
@@ -341,10 +294,10 @@ fun SyncScreen(
                 Button(
                     onClick = {
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://needix.pages.dev/Needix/"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://needix.app/"))
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "https://needix.pages.dev/Needix/", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "https://needix.app/", Toast.LENGTH_LONG).show()
                         }
                     },
                     modifier = Modifier.fillMaxWidth().testTag("open_web_app_button"),
@@ -674,7 +627,7 @@ fun SyncScreen(
     if (showTutorialDialog) {
         AlertDialog(
             onDismissRequest = { showTutorialDialog = false },
-            title = { Text("Indépendance des Données (FOSS)", fontWeight = FontWeight.Bold) },
+            title = { Text("Indépendance des Données", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Needix garantit que vos inventaires ne sont jamais enfermés chez un fournisseur cloud :")

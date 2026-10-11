@@ -102,62 +102,10 @@ object SheetsCsvManager {
      * Parses a CSV file from a Uri (e.g. Google Drive or device file picker)
      */
     suspend fun parseCsvFromUri(context: Context, uri: Uri): List<InventoryItemEntity> = withContext(Dispatchers.IO) {
-        val items = mutableListOf<InventoryItemEntity>()
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
-                var line = reader.readLine()
-                if (line == null) return@use
-
-                // Determine delimiter: comma or semicolon or tab
-                val delimiter = when {
-                    line.contains(";") -> ";"
-                    line.contains("\t") -> "\t"
-                    else -> ","
-                }
-
-                while (reader.readLine().also { line = it } != null) {
-                    val currentLine = line?.trim() ?: continue
-                    if (currentLine.isBlank()) continue
-
-                    val tokens = parseCsvLine(currentLine, delimiter)
-                    if (tokens.size >= 2) {
-                        try {
-                            val id = tokens.getOrNull(0)?.toLongOrNull() ?: 0L
-                            val name = tokens.getOrNull(1)?.trim() ?: ""
-                            if (name.isBlank()) continue
-
-                            val categoryId = tokens.getOrNull(2)?.trim()?.ifBlank { "autre" } ?: "autre"
-                            val quantity = tokens.getOrNull(3)?.trim()?.toIntOrNull() ?: 1
-                            val minThreshold = tokens.getOrNull(4)?.trim()?.toIntOrNull() ?: 1
-                            val unit = tokens.getOrNull(5)?.trim()?.ifBlank { "pièce" } ?: "pièce"
-                            val preferredStoreId = tokens.getOrNull(6)?.trim()?.ifBlank { "supermarket" } ?: "supermarket"
-                            val location = tokens.getOrNull(7)?.trim()?.ifBlank { "Maison" } ?: "Maison"
-                            val barcode = tokens.getOrNull(8)?.trim()?.takeIf { it.isNotBlank() }
-                            val notes = tokens.getOrNull(9)?.trim() ?: ""
-
-                            items.add(
-                                InventoryItemEntity(
-                                    id = id,
-                                    name = name,
-                                    categoryId = categoryId,
-                                    quantity = quantity.coerceAtLeast(0),
-                                    minThreshold = minThreshold.coerceAtLeast(0),
-                                    unit = unit,
-                                    preferredStoreId = preferredStoreId,
-                                    location = location,
-                                    barcode = barcode,
-                                    notes = notes,
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                            )
-                        } catch (_: Exception) {
-                            // ignore malformed line
-                        }
-                    }
-                }
-            }
-        }
-        return@withContext items
+        val content = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).readText()
+        } ?: return@withContext emptyList()
+        return@withContext UniversalExportManager.parseCsv(content)
     }
 
     private fun escapeCsv(value: String): String {

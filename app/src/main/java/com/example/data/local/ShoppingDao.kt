@@ -17,6 +17,9 @@ interface ShoppingDao {
     @Query("SELECT * FROM shopping_items WHERE storeId = :storeId ORDER BY isPurchased ASC, addedAt DESC")
     fun getShoppingItemsByStore(storeId: String): Flow<List<ShoppingItemEntity>>
 
+    @Query("SELECT * FROM shopping_items WHERE id = :id LIMIT 1")
+    suspend fun getShoppingItemById(id: Long): ShoppingItemEntity?
+
     @Query("SELECT * FROM shopping_items WHERE inventoryItemId = :inventoryItemId LIMIT 1")
     suspend fun getShoppingItemByInventoryId(inventoryItemId: Long): ShoppingItemEntity?
 

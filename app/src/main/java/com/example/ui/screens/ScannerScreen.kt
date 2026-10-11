@@ -79,7 +79,9 @@ import com.example.ui.components.StockBadge
 import com.example.ui.components.StoreBadge
 import com.example.ui.viewmodel.ScannerUiState
 import com.example.ui.viewmodel.ScannerViewModel
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
@@ -143,6 +145,26 @@ fun ScannerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+                val barcodeScanner = remember {
+                    val options = BarcodeScannerOptions.Builder()
+                        .setBarcodeFormats(
+                            Barcode.FORMAT_EAN_13,
+                            Barcode.FORMAT_EAN_8,
+                            Barcode.FORMAT_UPC_A,
+                            Barcode.FORMAT_UPC_E,
+                            Barcode.FORMAT_QR_CODE,
+                            Barcode.FORMAT_CODE_128
+                        )
+                        .build()
+                    BarcodeScanning.getClient(options)
+                }
+
+                DisposableEffect(Unit) {
+                    onDispose {
+                        barcodeScanner.close()
+                        cameraExecutor.shutdown()
+                    }
+                }
 
                 AndroidView(
                     factory = { ctx ->
@@ -166,8 +188,7 @@ fun ScannerScreen(
                                         mediaImage,
                                         imageProxy.imageInfo.rotationDegrees
                                     )
-                                    val scanner = BarcodeScanning.getClient()
-                                    scanner.process(image)
+                                    barcodeScanner.process(image)
                                         .addOnSuccessListener { barcodes ->
                                             barcodes.firstOrNull()?.rawValue?.let { code ->
                                                 viewModel.onBarcodeDetected(code)
