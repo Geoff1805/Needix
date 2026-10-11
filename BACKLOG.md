@@ -106,8 +106,51 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ---
 
+### [BACKLOG-SCANNER-07] Bip Sonore, Verrouillage Anti-Rebond & Proposition Immédiate d'Ajout au Scan
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Émettre un bip lors de la lecture du code-barres et proposer immédiatement l'ajout du produit.
+- **Spécifications** :
+  1. **Bip Sonore & Signal Haptique** :
+     - Émission d'un bip sonore de confirmation acoustique (`ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100).startTone(ToneGenerator.TONE_PROP_BEEP, 160)`) et vibration haptique sur Android (`HapticFeedbackType.LongPress`).
+     - Sur le Web : bip sonore via l'API standard Web Audio (`AudioContext` à `880 Hz`).
+  2. **Verrouillage Anti-Rebond de Caméra** :
+     - Dès qu'un code-barres est scanné (`scannedBarcode != null`), le processeur caméra ignore les frames suivantes pour ne pas relancer la recherche en boucle tant que l'utilisateur consulte la fiche.
+  3. **Proposition Immédiate d'Ajout (Haute Priorité UI)** :
+     - Affichage de la proposition d'ajout ou d'incrément `+1` tout en haut de l'écran avec scroll automatique immédiat.
+
+---
+
+### [BACKLOG-RECEIPT-08] Lecteur de Tickets de Caisse Numériques & Mise à Jour Assistée du Stock (Android & Web)
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Lecture des tickets numériques de magasin et mise à jour de l'inventaire.
+- **Spécifications** :
+  1. **Analyseur Intelligent de Tickets (`ReceiptParser.kt` & `parseWebReceiptText`)** :
+     - Filtrage automatique des lignes d'entête magasin, totaux, montants CB, TVA, SIRET, remises et séparateurs.
+     - Extraction des noms de produits et détection des multiplicateurs (`2 x 1,50 €`, `3 X`, etc.).
+     - Rapprochement automatique (matching flou par tokens) avec les articles existants de l'inventaire pour distinguer les **réapprovisionnements (`+X en stock`)** des **nouveaux articles**.
+  2. **Interface de Validation par Lot** :
+     - Import de fichier (`.txt`, `.html`, `.eml`, `.csv`) ou copier-coller du ticket numérique avec prévisualisation cochable et ajustement des quantités avant validation en un clic.
+
+---
+
+### [BACKLOG-WEB-09] Clarification Modèle Économique (Web Gratuit sans Abonnement) & Hébergement Cloudflare
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Préciser que seule la version Web est sans abonnement, et clarifier l'hébergement Cloudflare avec données 100% locales.
+- **Spécifications** :
+  1. **Modèle économique transparent** :
+     - Indiquer clairement dans le Hero, la section Téléchargement, la FAQ et le Footer que **seule la version Web est gratuite sans abonnement** (les applications mobiles stores incluent un essai gratuit de 14 jours puis un abonnement).
+  2. **Transparence d'Hébergement & Confidentialité 100% Locale** :
+     - Expliciter que le site statique est hébergé sur **Cloudflare Pages** pour une distribution rapide, mais qu'**aucune donnée d'inventaire ne transite ni n'est stockée sur Cloudflare ou un serveur distant** (stockage 100% local sur l'appareil via HTML5 File System Access / Room SQLite).
+
+---
+
 ## 2. Historique des Versions Livrées
 
+- **v0.6.3** :
+  - Livraison de `[BACKLOG-SCANNER-07]` : Bip sonore de confirmation au scan, verrouillage anti-rebond et affichage prioritaire immédiat de la proposition d'ajout au stock.
+  - Livraison de `[BACKLOG-RECEIPT-08]` : Lecteur de tickets de caisse numériques (e-mail, texte, fichier) avec extraction intelligente des produits et mise à jour assistée du stock sur Android et Web.
+  - Livraison de `[BACKLOG-WEB-09]` : Transparence sur l'hébergement Cloudflare Pages (données 100% locales) et précision que seule la version Web est gratuite sans abonnement.
+  - Mise à niveau de l'ensemble des GitHub Actions vers les versions natives Node.js 24 (`checkout@v7`, `upload-artifact@v7`, `setup-java@v6`, `setup-node@v7`, `gradle/actions@v6`).
 - **v0.6.2** :
   - Livraison de `[BACKLOG-SCANNER-06]` : Lecteur de codes-barres universel Multi-API (Open Food Facts v2, Open Beauty Facts v2, Open Products Facts v2, Inventaire.io ISBN, Chomp Food API v2) et base locale hors-ligne (`Open-Product-Database`) sur Android et Web.
   - Correctifs de sécurité des dépendances transitives Gradle (`Netty 4.1.139.Final`, `BouncyCastle 1.86`, `Guava 33.7.2-jre`, `JDOM2 2.0.6.1`, `Commons Lang3 3.21.0`, `jose4j 0.9.7`, `HttpClient 4.5.14`, `OkHttp 4.12.0`).
