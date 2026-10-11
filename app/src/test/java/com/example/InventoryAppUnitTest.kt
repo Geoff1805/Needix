@@ -8,7 +8,13 @@ import com.example.data.export.UniversalExportManager
 import com.example.data.model.CategoryEntity
 import com.example.data.model.InventoryItemEntity
 import com.example.data.model.StoreTypeEntity
+import com.example.data.network.ChompBarcodeResponse
+import com.example.data.network.ChompFoodItem
+import com.example.data.network.OffProductDetails
+import com.example.data.network.OffProductResponse
+import com.example.data.network.ProductLookupService
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -171,5 +177,80 @@ class InventoryAppUnitTest {
 
         assertTrue("Item with qty 1 and threshold 2 must trigger alert", isLowStock)
         assertTrue("Item with qty 5 and threshold 2 must not trigger alert", !isOk)
+    }
+
+    @Test
+    fun multiApiScanner_offlineDatabaseAndParsers() {
+        // 1. Offline Open-Product-Database lookup
+        val nutella = ProductLookupService.lookupOffline("3017620422003")
+        assertNotNull(nutella)
+        assertTrue(nutella!!.name.contains("Nutella"))
+        assertEquals("aliments", nutella.suggestedCategory)
+        assertEquals("E", nutella.nutriScore)
+        assertEquals(ProductLookupService.SOURCE_OFFLINE_DB, nutella.source)
+
+        // 2. ISBN detection & Inventaire.io parser
+        assertTrue(ProductLookupService.isIsbnBarcode("978-2-07-061275-8"))
+        assertFalse(ProductLookupService.isIsbnBarcode("3250390001001"))
+
+        val inventaireSample = """
+            {
+              "entities": {
+                "isbn:9782070413119": {
+                  "labels": { "fr": "Les Misérables" },
+                  "claims": {
+                    "wdt:P1476": ["Les Misérables"],
+                    "invp:P2": ["Victor Hugo / Folio"],
+                    "wdt:P1104": [512]
+                  },
+                  "image": { "url": "/img/entities/9782070413119.jpg" }
+                }
+              }
+            }
+        """.trimIndent()
+        val parsedBook = ProductLookupService.parseInventaireResponse("9782070413119", inventaireSample)
+        assertNotNull(parsedBook)
+        assertTrue(parsedBook!!.name.contains("Les Misérables"))
+        assertEquals("livre", parsedBook.suggestedUnit)
+        assertEquals(ProductLookupService.SOURCE_INVENTAIRE_IO, parsedBook.source)
+
+        // 3. Open Food / Beauty / Products Facts v2 parser
+        val beautyResponse = OffProductResponse(
+            status = 1,
+            product = OffProductDetails(
+                productNameFr = "Shampooing Doux Amande",
+                brands = "Le Petit Marseillais",
+                quantity = "250 ml",
+                categories = listOf("en:beauty", "en:shampoos"),
+                allergensTags = emptyList()
+            )
+        )
+        val parsedBeauty = ProductLookupService.parseOpenFactsProduct(
+            barcode = "3574661482002",
+            response = beautyResponse,
+            sourceName = ProductLookupService.SOURCE_OPEN_BEAUTY_FACTS,
+            defaultCategory = "hygiene"
+        )
+        assertNotNull(parsedBeauty)
+        assertEquals("hygiene", parsedBeauty!!.suggestedCategory)
+        assertEquals("flacon", parsedBeauty.suggestedUnit)
+        assertEquals(ProductLookupService.SOURCE_OPEN_BEAUTY_FACTS, parsedBeauty.source)
+
+        // 4. Chomp Food API v2 parser
+        val chompResponse = ChompBarcodeResponse(
+            items = listOf(
+                ChompFoodItem(
+                    name = "Organic Oat Milk",
+                    brand = "Oatly",
+                    packageSize = "1 L",
+                    allergens = listOf("Oats", "Gluten")
+                )
+            )
+        )
+        val parsedChomp = ProductLookupService.parseChompResponse("7394376615979", chompResponse)
+        assertNotNull(parsedChomp)
+        assertTrue(parsedChomp!!.name.contains("Oatly"))
+        assertEquals("bouteille", parsedChomp.suggestedUnit)
+        assertEquals(ProductLookupService.SOURCE_CHOMP_API, parsedChomp.source)
     }
 }

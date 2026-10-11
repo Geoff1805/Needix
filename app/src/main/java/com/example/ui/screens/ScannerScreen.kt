@@ -9,14 +9,12 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,16 +26,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -75,8 +69,8 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.example.data.model.CategoryEntity
 import com.example.data.model.StoreTypeEntity
+import com.example.data.network.ProductLookupService
 import com.example.ui.components.StockBadge
-import com.example.ui.components.StoreBadge
 import com.example.ui.viewmodel.ScannerUiState
 import com.example.ui.viewmodel.ScannerViewModel
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -94,6 +88,10 @@ fun ScannerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(Unit) {
+        ProductLookupService.ensureOfflineDatabaseLoaded(context)
+    }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -123,13 +121,13 @@ fun ScannerScreen(
         // Screen title
         Column {
             Text(
-                text = "Scanner de code-barres",
+                text = "Scanner universel Multi-API",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                text = "Scannez un emballage pour l'ajouter ou ajuster son stock",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Alimentation (Open Food Facts, Chomp), Cosmétiques (Open Beauty Facts), Maison (Open Products Facts), Livres (Inventaire.io) & Base hors-ligne",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -153,7 +151,9 @@ fun ScannerScreen(
                             Barcode.FORMAT_UPC_A,
                             Barcode.FORMAT_UPC_E,
                             Barcode.FORMAT_QR_CODE,
-                            Barcode.FORMAT_CODE_128
+                            Barcode.FORMAT_CODE_128,
+                            Barcode.FORMAT_CODE_39,
+                            Barcode.FORMAT_ITF
                         )
                         .build()
                     BarcodeScanning.getClient(options)
@@ -257,7 +257,7 @@ fun ScannerScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "L'accès à la caméra permet de scanner instantanément les codes-barres de vos produits.",
+                        text = "L'accès à la caméra permet de scanner instantanément les codes EAN, UPC et ISBN de vos produits.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -275,7 +275,7 @@ fun ScannerScreen(
         // Quick Testing Barcodes (Indispensable for browser emulator testing!)
         Column {
             Text(
-                text = "⚡ Tester un code-barres (simulateur) :",
+                text = "⚡ Tester un code-barres (simulateur multi-catégories) :",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -316,8 +316,8 @@ fun ScannerScreen(
             OutlinedTextField(
                 value = manualCodeInput,
                 onValueChange = { manualCodeInput = it },
-                label = { Text("Saisie manuelle code-barres") },
-                placeholder = { Text("Ex: 3250390001001") },
+                label = { Text("Saisie manuelle code EAN / UPC / ISBN") },
+                placeholder = { Text("Ex: 3250390001001 ou 9782070612758") },
                 singleLine = true,
                 modifier = Modifier
                     .weight(1f)
@@ -345,7 +345,7 @@ fun ScannerScreen(
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Recherche du produit en cours...")
+                Text("Interrogation des bases produits en cours...")
             }
         }
 
@@ -415,18 +415,23 @@ fun ScannerScreen(
             }
         }
 
-        // Result 2: Product found on Open Food Facts online!
+        // Result 2: Product found via Offline DB or Multi-API cascade!
         if (uiState.onlineProduct != null) {
             val prod = uiState.onlineProduct
             NewScannedProductForm(
                 barcode = prod.barcode,
                 defaultName = prod.name,
                 suggestedCategory = prod.suggestedCategory,
+                suggestedUnit = prod.suggestedUnit,
+                suggestedNotes = prod.suggestedNotes,
+                sourceName = prod.source,
+                nutriScore = prod.nutriScore,
+                allergens = prod.allergens,
                 imageUrl = prod.imageUrl,
                 categories = categories,
                 storeTypes = storeTypes,
-                onAdd = { name, cat, qty, unit, store, loc ->
-                    viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc)
+                onAdd = { name, cat, qty, unit, store, loc, notes ->
+                    viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
                 },
                 onCancel = { viewModel.reset() }
             )
@@ -457,11 +462,16 @@ fun ScannerScreen(
                         barcode = uiState.scannedBarcode ?: "",
                         defaultName = "",
                         suggestedCategory = "autre",
+                        suggestedUnit = "pièce",
+                        suggestedNotes = "",
+                        sourceName = null,
+                        nutriScore = null,
+                        allergens = null,
                         imageUrl = null,
                         categories = categories,
                         storeTypes = storeTypes,
-                        onAdd = { name, cat, qty, unit, store, loc ->
-                            viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc)
+                        onAdd = { name, cat, qty, unit, store, loc, notes ->
+                            viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
                         },
                         onCancel = { viewModel.reset() }
                     )
@@ -476,18 +486,38 @@ fun NewScannedProductForm(
     barcode: String,
     defaultName: String,
     suggestedCategory: String,
+    suggestedUnit: String = "pièce",
+    suggestedNotes: String = "",
+    sourceName: String? = null,
+    nutriScore: String? = null,
+    allergens: String? = null,
     imageUrl: String?,
     categories: List<CategoryEntity>,
     storeTypes: List<StoreTypeEntity>,
-    onAdd: (name: String, categoryId: String, quantity: Int, unit: String, storeId: String, location: String) -> Unit,
+    onAdd: (name: String, categoryId: String, quantity: Int, unit: String, storeId: String, location: String, notes: String) -> Unit,
     onCancel: () -> Unit
 ) {
-    var name by remember { mutableStateOf(defaultName) }
-    var selectedCategoryId by remember { mutableStateOf(suggestedCategory) }
-    var quantity by remember { mutableIntStateOf(1) }
-    var unit by remember { mutableStateOf("pièce") }
-    var selectedStoreId by remember { mutableStateOf(storeTypes.firstOrNull()?.id ?: "supermarket") }
-    var location by remember { mutableStateOf("Cuisine") }
+    val defaultLocation = when (suggestedCategory) {
+        "hygiene" -> "Salle de bain"
+        "pharmacie" -> "Pharmacie"
+        "bricolage" -> "Garage / Cave"
+        "menager" -> "Placard"
+        "autre" -> if (suggestedUnit == "livre") "Bibliothèque / Salon" else "Maison"
+        else -> "Cuisine"
+    }
+    val defaultStore = when (suggestedCategory) {
+        "pharmacie" -> storeTypes.find { it.id == "pharmacy" }?.id ?: "supermarket"
+        "bricolage" -> storeTypes.find { it.id == "brico" }?.id ?: "supermarket"
+        else -> storeTypes.firstOrNull()?.id ?: "supermarket"
+    }
+
+    var name by remember(barcode, defaultName) { mutableStateOf(defaultName) }
+    var selectedCategoryId by remember(barcode, suggestedCategory) { mutableStateOf(suggestedCategory) }
+    var quantity by remember(barcode) { mutableIntStateOf(1) }
+    var unit by remember(barcode, suggestedUnit) { mutableStateOf(suggestedUnit) }
+    var selectedStoreId by remember(barcode, defaultStore) { mutableStateOf(defaultStore) }
+    var location by remember(barcode, defaultLocation) { mutableStateOf(defaultLocation) }
+    var notes by remember(barcode, suggestedNotes) { mutableStateOf(suggestedNotes) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -500,6 +530,48 @@ fun NewScannedProductForm(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            if (!sourceName.isNullOrBlank()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "✓ Source : $sourceName",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    if (!nutriScore.isNullOrBlank()) {
+                        val nutriColor = when (nutriScore.uppercase()) {
+                            "A" -> Color(0xFF038141)
+                            "B" -> Color(0xFF85BB2F)
+                            "C" -> Color(0xFFFECB02)
+                            "D" -> Color(0xFFEE8100)
+                            else -> Color(0xFFE63E11)
+                        }
+                        Surface(
+                            color = nutriColor,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Nutri-Score ${nutriScore.uppercase()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (nutriScore.uppercase() == "C") Color.Black else Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -520,10 +592,18 @@ fun NewScannedProductForm(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Code: $barcode",
+                        text = "Code : $barcode",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (!allergens.isNullOrBlank()) {
+                        Text(
+                            text = "⚠️ Allergènes : $allergens",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
@@ -574,6 +654,14 @@ fun NewScannedProductForm(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes / Nutri-Score / Détails") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -581,7 +669,7 @@ fun NewScannedProductForm(
                 Button(
                     onClick = {
                         if (name.isNotBlank()) {
-                            onAdd(name, selectedCategoryId, quantity, unit, selectedStoreId, location)
+                            onAdd(name, selectedCategoryId, quantity, unit, selectedStoreId, location, notes)
                         }
                     },
                     enabled = name.isNotBlank(),
