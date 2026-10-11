@@ -220,6 +220,26 @@ function initEventListeners() {
   if (fallbackInput) {
     fallbackInput.addEventListener("change", handleFallbackFileInput);
   }
+
+  const btnReceipt = document.getElementById("btn-receipt-scan");
+  const btnReceiptClose = document.getElementById("receipt-modal-close");
+  const btnReceiptCancel = document.getElementById("receipt-cancel-btn");
+  const btnReceiptFile = document.getElementById("btn-load-receipt-file");
+  const receiptFileInput = document.getElementById("receipt-file-input");
+  const btnReceiptSample = document.getElementById("btn-load-receipt-sample");
+  const btnParseReceipt = document.getElementById("btn-parse-receipt");
+  const btnReceiptApply = document.getElementById("receipt-apply-btn");
+
+  if (btnReceipt) btnReceipt.addEventListener("click", openReceiptModal);
+  if (btnReceiptClose) btnReceiptClose.addEventListener("click", closeReceiptModal);
+  if (btnReceiptCancel) btnReceiptCancel.addEventListener("click", closeReceiptModal);
+  if (btnReceiptFile && receiptFileInput) {
+    btnReceiptFile.addEventListener("click", () => receiptFileInput.click());
+    receiptFileInput.addEventListener("change", handleReceiptFileInput);
+  }
+  if (btnReceiptSample) btnReceiptSample.addEventListener("click", handleReceiptSample);
+  if (btnParseReceipt) btnParseReceipt.addEventListener("click", handleAnalyzeReceipt);
+  if (btnReceiptApply) btnReceiptApply.addEventListener("click", handleApplyReceipt);
 }
 
 async function loadInitialState() {
@@ -1153,6 +1173,7 @@ async function handleWebBarcodeLookup() {
   }
 
   if (result) {
+    playScannerBeep();
     document.getElementById("item-name").value = result.name;
     document.getElementById("item-category").value = result.category;
     document.getElementById("item-unit").value = result.unit;
@@ -1163,6 +1184,292 @@ async function handleWebBarcodeLookup() {
   } else {
     showToast("Produit non trouvé dans les bases mondiales. Complétez manuellement.", "warning");
   }
+}
+
+function playScannerBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz A5 beep
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.14);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch (e) {
+    // AudioContext blocked by browser autoplay policy
+  }
+}
+
+// -------------------------------------------------------------
+// Digital Receipt Parser & Stock Updater ([BACKLOG-RECEIPT-08])
+// -------------------------------------------------------------
+
+let currentReceiptLines = [];
+
+const SAMPLE_WEB_RECEIPT = `SUPERMARCHÉ BIO & FRAIS
+Ticket de caisse numérique - 11/10/2026 18:42
+-----------------------------------------
+2 x Lait demi-écrémé Bio 1L        2,70 €
+Pâtes Penne Rigate 500g            1,45 €
+Huile d'olive vierge extra 1L      8,90 €
+Gel Douche Surgras Mixa 400ml      3,50 €
+Lessive liquide Ariel 1.8L         9,90 €
+Pommes Golden Bio 1kg              2,99 €
+-----------------------------------------
+TOTAL TTC                         29,44 €
+CARTE BANCAIRE SANS CONTACT       29,44 €
+TVA 5,5% : 1,12 € | TVA 20% : 2,23 €
+Merci de votre visite !`;
+
+function openReceiptModal() {
+  const modal = document.getElementById("receipt-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    currentReceiptLines = [];
+    document.getElementById("receipt-raw-text").value = "";
+    document.getElementById("receipt-results-container").style.display = "none";
+    document.getElementById("receipt-apply-btn").style.display = "none";
+  }
+}
+
+function closeReceiptModal() {
+  const modal = document.getElementById("receipt-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function handleReceiptSample() {
+  document.getElementById("receipt-raw-text").value = SAMPLE_WEB_RECEIPT;
+  handleAnalyzeReceipt();
+}
+
+function handleReceiptFileInput(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    document.getElementById("receipt-raw-text").value = event.target.result;
+    handleAnalyzeReceipt();
+  };
+  reader.readAsText(file);
+}
+
+function parseWebReceiptText(rawText) {
+  if (!rawText || !rawText.trim()) return [];
+
+  const ignored = [
+    "total", "sous-total", "subtotal", "tva", "dont tva", "montant", "carte bancaire",
+    "cb ", "especes", "espèces", "rendu", "monnaie", "ticket", "caisse", "caissier",
+    "merci de votre visite", "a bientot", "à bientôt", "siret", "siren", " rcs ",
+    "tel :", "tél :", "horaires", "facture", "paiement", "autorisation", " sans contact",
+    "fidelite", "fidélité", "avantage", "remise", "reduction", "réduction", "bon d'achat",
+    "solde", "points", "ouverture", "bienvenue", "http://", "https://", "www."
+  ];
+
+  const clean = rawText
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+
+  const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const items = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lower = line.toLowerCase();
+    if (lower.length < 3 || ignored.some(k => lower.includes(k))) continue;
+    if (/^[\s\-=_*#/0-9:.,€]+$/.test(lower)) continue;
+    if (/^\d{2}\/\d{2}\/\d{2,4}/.test(lower)) continue;
+
+    let qty = 1;
+    let name = line;
+
+    // "YAOURT 2 x 1,50 3,00 €"
+    const inlineMatch = name.match(/^(.+?)\s+(\d{1,2})\s*[xX*]\s*\d+[.,]\d{2}.*$/);
+    if (inlineMatch) {
+      name = inlineMatch[1].trim();
+      qty = parseInt(inlineMatch[2], 10) || 1;
+    } else {
+      // Trailing price "PATES 1,29 €"
+      name = name.replace(/\s+-?\d{1,4}[.,]\d{2}\s*(?:€|EUR)?\s*[A-Z*]?\s*$/i, "").trim();
+      // Leading qty "2 x LAIT"
+      const leadMatch = name.match(/^(\d{1,2})\s*[xX*]\s+(.+)$/);
+      if (leadMatch) {
+        qty = parseInt(leadMatch[1], 10) || 1;
+        name = leadMatch[2].trim();
+      }
+    }
+
+    // Standalone multiplier on next line "  2 x 1,50 €"
+    if (i + 1 < lines.length && /^\s*(\d{1,2})\s*[xX*]\s*\d+[.,]\d{2}/.test(lines[i + 1])) {
+      const nextMatch = lines[i + 1].match(/^\s*(\d{1,2})\s*[xX*]/);
+      if (nextMatch) {
+        qty = parseInt(nextMatch[1], 10) || qty;
+        i++;
+      }
+    }
+
+    // Clean name
+    name = name.replace(/^\d{6,14}\s+/, "").trim();
+    if (name.length < 3 || ignored.some(k => name.toLowerCase().includes(k))) continue;
+
+    if (name === name.toUpperCase()) {
+      name = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    }
+
+    // Match with existing inventory
+    const existing = findMatchingInventoryItem(name);
+    const category = existing ? (existing.categoryId || "aliments") : guessWebCategory(name);
+    const unit = existing ? (existing.unit || "pièce") : guessWebUnit(name);
+
+    const dup = items.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (dup) {
+      dup.quantity += qty;
+    } else {
+      items.push({
+        rawLine: line,
+        name: existing ? existing.name : name,
+        quantity: qty,
+        unit,
+        category,
+        existingItem: existing,
+        selected: true
+      });
+    }
+  }
+
+  return items;
+}
+
+function findMatchingInventoryItem(receiptName) {
+  const norm = receiptName.toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+  const list = inventoryData.items || [];
+  return list.find(it => {
+    const itemNorm = (it.name || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    return itemNorm && (norm.includes(itemNorm) || itemNorm.includes(norm));
+  }) || null;
+}
+
+function guessWebCategory(name) {
+  const n = name.toLowerCase();
+  if (/lessive|vaisselle|javel|nettoyant|eponge|essuie|poubelle/.test(n)) return "menager";
+  if (/savon|shampoing|douche|dentifrice|deodorant|papier toilette|creme/.test(n)) return "hygiene";
+  if (/doliprane|paracetamol|pansement|sirop|vitamine/.test(n)) return "pharmacie";
+  if (/huile|sel|poivre|epice|farine|sucre|vinaigre|moutarde|cafe|the/.test(n)) return "cuisine";
+  if (/ampoule|pile|vis|colle|outil|brico/.test(n)) return "bricolage";
+  return "aliments";
+}
+
+function guessWebUnit(name) {
+  const match = name.match(/\b(\d+(?:[.,]\d+)?\s*(?:kg|g|l|ml|cl))\b/i);
+  return match ? match[1] : "pièce";
+}
+
+function handleAnalyzeReceipt() {
+  const text = document.getElementById("receipt-raw-text").value.trim();
+  if (!text) {
+    showToast("Veuillez coller ou importer un ticket de caisse", "warning");
+    return;
+  }
+  currentReceiptLines = parseWebReceiptText(text);
+  if (currentReceiptLines.length === 0) {
+    showToast("Aucun produit reconnu sur ce ticket", "warning");
+    document.getElementById("receipt-results-container").style.display = "none";
+    document.getElementById("receipt-apply-btn").style.display = "none";
+    return;
+  }
+
+  playScannerBeep();
+  renderReceiptResults();
+  document.getElementById("receipt-results-container").style.display = "block";
+  document.getElementById("receipt-apply-btn").style.display = "inline-block";
+  showToast(`${currentReceiptLines.length} produit(s) détecté(s) sur le ticket !`, "success");
+}
+
+function renderReceiptResults() {
+  const container = document.getElementById("receipt-items-list");
+  if (!container) return;
+
+  container.innerHTML = currentReceiptLines.map((it, idx) => `
+    <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" ${it.selected ? "checked" : ""} onchange="toggleWebReceiptItem(${idx})">
+        <div>
+          <div style="font-weight: 600; font-size: 0.9rem;">${escapeHtml(it.name)}</div>
+          <div style="font-size: 0.75rem; color: ${it.existingItem ? "#38bdf8" : "#a78bfa"};">
+            ${it.existingItem ? `🔄 En stock (${it.existingItem.quantity}) → +${it.quantity}` : `✨ Nouvel article (${resolveCategoryLabel(it.category)})`}
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button class="qty-btn" style="width: 26px; height: 26px; font-size: 0.8rem;" onclick="updateWebReceiptQty(${idx}, -1)">-</button>
+        <span style="font-weight: bold; min-width: 20px; text-align: center;">${it.quantity}</span>
+        <button class="qty-btn" style="width: 26px; height: 26px; font-size: 0.8rem;" onclick="updateWebReceiptQty(${idx}, 1)">+</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleWebReceiptItem(idx) {
+  if (currentReceiptLines[idx]) {
+    currentReceiptLines[idx].selected = !currentReceiptLines[idx].selected;
+  }
+}
+
+function updateWebReceiptQty(idx, delta) {
+  if (currentReceiptLines[idx]) {
+    currentReceiptLines[idx].quantity = Math.max(1, currentReceiptLines[idx].quantity + delta);
+    renderReceiptResults();
+  }
+}
+
+function handleApplyReceipt() {
+  const selected = currentReceiptLines.filter(x => x.selected);
+  if (selected.length === 0) {
+    showToast("Veuillez sélectionner au moins un article", "warning");
+    return;
+  }
+
+  let updated = 0;
+  let added = 0;
+
+  selected.forEach(line => {
+    if (line.existingItem) {
+      line.existingItem.quantity = Math.round((line.existingItem.quantity || 0) + line.quantity);
+      line.existingItem.updatedAt = Date.now();
+      updated++;
+    } else {
+      const nextId = (inventoryData.items.length > 0) ? Math.max(...inventoryData.items.map(x => x.id || 0)) + 1 : 1;
+      inventoryData.items.push({
+        id: nextId,
+        name: line.name,
+        categoryId: line.category,
+        category: resolveCategoryLabel(line.category),
+        location: line.category === "hygiene" ? "Salle de bain" : "Placard",
+        quantity: line.quantity,
+        minThreshold: 1,
+        minQuantity: 1,
+        unit: line.unit,
+        expirationDate: "",
+        preferredStoreId: "supermarket",
+        store: "Supermarché",
+        barcode: null,
+        notes: "Importé depuis ticket de caisse numérique",
+        updatedAt: Date.now()
+      });
+      added++;
+    }
+  });
+
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderWebApp();
+  closeReceiptModal();
+  playScannerBeep();
+  showToast(`Inventaire mis à jour : ${updated} réapprovisionné(s), ${added} nouveau(x) produit(s) !`, "success");
 }
 
 // -------------------------------------------------------------
