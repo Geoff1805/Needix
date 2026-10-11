@@ -6,19 +6,32 @@ on:
     paths:
       - 'web/**'
       - 'wrangler.toml'
+      - '.github/workflows/cloudflare-pages.yml'
   workflow_dispatch:
 
 jobs:
   deploy:
     name: Deploy to Cloudflare Pages (needix.alsteens.net)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web --project-name=needix
+          node-version: '22'
+
+      - name: Deploy to Cloudflare Pages via Wrangler
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ℹ️ Les secrets CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID ne sont pas définis dans GitHub Actions."
+            echo "Si votre projet Cloudflare Pages est déjà connecté directement au dépôt GitHub via le tableau de bord Cloudflare, le déploiement s'effectue automatiquement côté Cloudflare."
+            echo "### ℹ️ Déploiement Cloudflare Pages" >> $GITHUB_STEP_SUMMARY
+            echo "Secrets \`CLOUDFLARE_API_TOKEN\` / \`CLOUDFLARE_ACCOUNT_ID\` non renseignés dans GitHub Actions — déploiement délégué à l'intégration Git native de Cloudflare Pages." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          npx --yes wrangler@latest pages deploy web --project-name=needix --branch=main --commit-dirty=true

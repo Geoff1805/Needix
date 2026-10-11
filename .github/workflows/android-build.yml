@@ -25,7 +25,7 @@ jobs:
   # Job 1 : Exécution obligatoire et bloquante de la suite de tests unitaires
   unit-tests:
     name: Automated Unit Tests (Gate)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Récupérer le code source
@@ -39,7 +39,7 @@ jobs:
         cache: gradle # Green IT : Mise en cache pour diviser par deux le temps CPU
 
     - name: Générer le Wrapper Gradle
-      run: gradle wrapper
+      run: gradle wrapper --gradle-version 9.3.1
 
     - name: Exécuter tous les tests unitaires (bloquant en cas d'échec)
       run: ./gradlew testDebugUnitTest --continue
@@ -55,7 +55,7 @@ jobs:
   package-and-release:
     name: Package & Release Artifacts
     needs: [unit-tests] # Condition stricte : Exécuté uniquement si les tests passent avec succès
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Récupérer le code source
@@ -82,7 +82,7 @@ jobs:
         fi
 
     - name: Générer le Wrapper Gradle
-      run: gradle wrapper
+      run: gradle wrapper --gradle-version 9.3.1
 
     - name: Compiler l'APK Android (Debug)
       run: ./gradlew assembleDebug

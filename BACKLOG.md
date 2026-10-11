@@ -79,6 +79,33 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ---
 
+### [BACKLOG-SCANNER-06] Reconnaissance Universelle Multi-API & Base Hors-Ligne (`Open-Product-Database`)
+- **Statut** : `Planifié — En attente de validation`
+- **Origine** : Demande utilisateur — Maximiser le taux de reconnaissance du lecteur de codes-barres (alimentaire, ménager, cosmétique, livres/culture et mode hors-ligne).
+- **Spécifications** :
+  1. **Base de données locale embarquée (`Open-Product-Database`)** :
+     - Intégration d'une base de données JSON/TSV locale embarquée (`app/src/main/assets/open_product_database.json` et `web/data/open-product-database.json`) + cache local en mémoire/disque pour reconnaître instantanément les produits courants **sans aucune connexion réseau** (0 ms de latence, Green IT).
+  2. **API Open Food Facts v2 (Alimentation mondiale)** :
+     - Endpoint : `https://world.openfoodfacts.net/api/v2/product/{code_barre}` (avec repli sur `world.openfoodfacts.org/api/v2/product/{code_barre}`).
+     - Récupération du nom (`product_name_fr` / `product_name`), de la marque (`brands`), de la quantité/unité (`quantity`), de l'image, du **Nutri-Score** (`nutriscore_grade`), des **ingrédients** et des **allergènes**.
+  3. **API Open Products Facts v2 (Maison, Ménager, Bricolage, Électronique)** :
+     - Endpoint : `https://world.openproductsfacts.org/api/v2/product/{code_barre}`.
+     - Architecture unifiée à 98 % avec Open Food Facts ; catégorisation automatique vers `menager`, `bricolage` ou `autre`.
+  4. **API Open Beauty Facts v2 (Cosmétiques, Hygiène, Parfums, Soins)** :
+     - Endpoint : `https://world.openbeautyfacts.org/api/v2/product/{code_barre}`.
+     - Même structure JSON ouverte ; catégorisation automatique vers `hygiene` ou `pharmacie`.
+  5. **API Inventaire.io (Livres & Culture par code ISBN)** :
+     - Endpoint : `https://api.inventaire.io/api/entities/by-uris?uris=isbn:{code_barre}`.
+     - Détection prioritaire des préfixes ISBN-13 (`978`, `979`) et ISBN-10 pour extraire le titre de l'ouvrage, l'auteur/éditeur, la couverture et les métadonnées culturelles.
+  6. **Chomp Food API v2 (Nutrition & Aliments emballés — Dernier recours)** :
+     - Endpoint : `https://chompthis.com/api/v2/food/branded/barcode.php?code={code_barre}&api_key={CHOMP_API_KEY}`.
+     - Appelée uniquement en dernier recours si aucune base ouverte gratuite ni la base locale n'a trouvé le produit (afin de préserver le forfait gratuit de 1 000 requêtes/mois), lorsque `CHOMP_API_KEY` est renseignée dans `.env`.
+  7. **Interface Scanner & Enrichissement UI (`ScannerScreen.kt` & `ScannerViewModel.kt`)** :
+     - Affichage d'un badge indiquant la source ayant identifié le produit (`Open Food Facts`, `Open Beauty Facts`, `Open Products Facts`, `Inventaire.io`, `Chomp API`, `Base Locale Hors-Ligne`).
+     - Pré-remplissage intelligent de l'unité/contenance, des notes (Nutri-Score, allergènes, auteur/éditeur) et ajout de codes-barres de démonstration multi-catégories (alimentaire, cosmétique, ménager, livre ISBN).
+
+---
+
 ## 2. Historique des Versions Livrées
 
 - **v0.6.1** :
