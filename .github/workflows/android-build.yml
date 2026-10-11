@@ -21,6 +21,9 @@ on:
     types: [ published ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # Job 1 : Exécution obligatoire et bloquante de la suite de tests unitaires
   unit-tests:
@@ -43,6 +46,11 @@ jobs:
 
     - name: Exécuter tous les tests unitaires (bloquant en cas d'échec)
       run: ./gradlew testDebugUnitTest --continue
+
+    - name: Mettre à jour le graphe de dépendances GitHub (Sécurité Dependabot)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      continue-on-error: true
+      uses: gradle/actions/dependency-submission@v4
 
     - name: Sauvegarder les rapports de tests unitaires
       if: always()
