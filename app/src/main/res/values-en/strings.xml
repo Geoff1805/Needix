@@ -67,7 +67,7 @@
     <string name="add_to_inventory_action">Add to inventory</string>
     <string name="restock_action">Restock (+1)</string>
 
-    <!-- Universal Backup & FOSS Export -->
+    <!-- Universal Backup & Export -->
     <string name="data_backup_title">Universal Backup &amp; Export</string>
     <string name="export_csv_title">Standard CSV Export</string>
     <string name="export_csv_desc">Universal spreadsheet file editable on PC/Mac (Excel, LibreOffice, Google Sheets).</string>
@@ -81,30 +81,23 @@
     <string name="import_json_button">Restore JSON backup</string>
     <string name="storage_saf_info">Universal SAF storage: save locally or to Nextcloud, Drive, SD card.</string>
 
-    <!-- Hybrid Monetization & FOSS Donations -->
-    <string name="support_project_title">Support Needix (FOSS)</string>
-    <string name="support_project_desc">Needix is a 100% open-source, privacy-respecting app. If you enjoy it, please support its independent development!</string>
-    <string name="donate_github">GitHub Sponsors</string>
-    <string name="donate_liberapay">Liberapay</string>
-    <string name="donate_kofi">Ko-fi / Buy Me a Coffee</string>
-    <string name="donate_paypal">PayPal</string>
+    <!-- Commercial Monetization (RevenueCat) -->
     <string name="commercial_paywall_title">Needix Premium</string>
     <string name="trial_active_message">Free trial: %1$d days remaining</string>
     <string name="trial_expired_message">Your 14-day free trial has expired.</string>
     <string name="subscription_monthly">Monthly Subscription ($2.99 / mo)</string>
     <string name="subscription_annual">Annual Subscription ($19.99 / yr - 2 months free)</string>
     <string name="subscribe_button">Subscribe</string>
-    <string name="flavor_mode_label">Distribution Mode</string>
-    <string name="flavor_foss_name">FOSS (Open Source &amp; Donations)</string>
-    <string name="flavor_commercial_name">Commercial (14-day trial &amp; Store)</string>
+    <string name="flavor_mode_label">License &amp; Subscription</string>
+    <string name="flavor_commercial_name">Needix Premium Active</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Needix Stock Alerts</string>
     <string name="notification_threshold_title">Low stock: %1$s</string>
     <string name="notification_threshold_body">Only %1$d %2$s left (threshold: %3$d). Consider restocking at %4$s.</string>
 
-    <!-- Showcase Website & Web App (Cloudflare Pages) -->
+    <!-- Showcase Website & Web App (needix.app) -->
     <string name="web_landing_title">Showcase Website &amp; Web App</string>
-    <string name="web_landing_desc">Access the showcase website and zero-install Web version hosted on Cloudflare Pages (/Needix). Edit your JSON files directly via the File System Access API.</string>
-    <string name="web_landing_button">Open Web Version (/Needix)</string>
+    <string name="web_landing_desc">Access the showcase website and zero-install Web version at needix.app. Edit your JSON files directly via the File System Access API.</string>
+    <string name="web_landing_button">Open Web Version (needix.app)</string>
 </resources>

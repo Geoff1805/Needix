@@ -44,16 +44,16 @@ Le fichier `.aab` produit se trouve dans :
 
 ## 3. Génération & Packaging de la Web App (Cloudflare Pages)
 
-La Web App et la Landing Page Needix intégrant le SDK PayPal et le déverrouillage par clé de licence sont situées dans le dossier `/web/Needix`.
+La Web App et la Landing Page Needix sont situées directement à la racine du dossier `/web` (servies sur `https://needix.app/`).
 
 Pour préparer l'archive de déploiement manuel :
 
 ```bash
 # Créer une archive tar.gz prête pour le téléversement Cloudflare Pages
-tar -czf needix-web-v0.6.0.tar.gz -C web/Needix .
+tar -czf needix-web-v0.6.0.tar.gz -C web .
 
 # Ou pour déployer directement via la CLI Wrangler (Cloudflare) :
-npx wrangler pages deploy web/Needix --project-name=needix
+npx wrangler pages deploy web --project-name=needix
 ```
 
 ---

@@ -67,7 +67,7 @@
     <string name="add_to_inventory_action">Toevoegen aan inventaris</string>
     <string name="restock_action">Aanvullen (+1)</string>
 
-    <!-- Universele Back-up & FOSS Export -->
+    <!-- Universele Back-up & Export -->
     <string name="data_backup_title">Universele Back-up &amp; Export</string>
     <string name="export_csv_title">Standaard CSV-export</string>
     <string name="export_csv_desc">Universeel spreadsheetbestand bewerkbaar op pc/Mac (Excel, LibreOffice, Google Sheets).</string>
@@ -81,30 +81,23 @@
     <string name="import_json_button">JSON-back-up herstellen</string>
     <string name="storage_saf_info">Universele SAF-opslag: sla lokaal op of op Nextcloud, Drive, SD-kaart.</string>
 
-    <!-- Hybride Monetarisering & FOSS Donaties -->
-    <string name="support_project_title">Steun Needix (FOSS)</string>
-    <string name="support_project_desc">Needix is een 100% open-source app die uw privacy respecteert. Als u het waardeert, steun dan de onafhankelijke ontwikkeling!</string>
-    <string name="donate_github">GitHub Sponsors</string>
-    <string name="donate_liberapay">Liberapay</string>
-    <string name="donate_kofi">Ko-fi / Buy Me a Coffee</string>
-    <string name="donate_paypal">PayPal</string>
+    <!-- Commerciële Monetarisering (RevenueCat) -->
     <string name="commercial_paywall_title">Needix Premium</string>
     <string name="trial_active_message">Gratis proefperiode: nog %1$d dagen</string>
     <string name="trial_expired_message">Uw proefperiode van 14 dagen is verlopen.</string>
     <string name="subscription_monthly">Maandelijks abonnement (€ 2,99 / mnd)</string>
     <string name="subscription_annual">Jaarlijks abonnement (€ 19,99 / jr - 2 maanden gratis)</string>
     <string name="subscribe_button">Abonneren</string>
-    <string name="flavor_mode_label">Distributiemodus</string>
-    <string name="flavor_foss_name">FOSS (Open Source &amp; Donaties)</string>
-    <string name="flavor_commercial_name">Commercieel (14 dagen proef &amp; Store)</string>
+    <string name="flavor_mode_label">Licentie &amp; Abonnement</string>
+    <string name="flavor_commercial_name">Needix Premium Actief</string>
 
     <!-- Meldingen -->
     <string name="notification_channel_name">Needix Voorraadmeldingen</string>
     <string name="notification_threshold_title">Lage voorraad: %1$s</string>
     <string name="notification_threshold_body">Er zijn nog maar %1$d %2$s over (drempel: %3$d). Denk eraan te kopen bij %4$s.</string>
 
-    <!-- Vitrine Website & Web App (Cloudflare Pages) -->
+    <!-- Vitrine Website & Web App (needix.app) -->
     <string name="web_landing_title">Vitrine Website &amp; Web App</string>
-    <string name="web_landing_desc">Open de website en de installatievrije webversie op Cloudflare Pages (/Needix). Bewerk uw JSON-voorraadbestanden rechtstreeks via de File System Access API.</string>
-    <string name="web_landing_button">Webversie openen (/Needix)</string>
+    <string name="web_landing_desc">Open de website en de installatievrije webversie op needix.app. Bewerk uw JSON-voorraadbestanden rechtstreeks via de File System Access API.</string>
+    <string name="web_landing_button">Webversie openen (needix.app)</string>
 </resources>

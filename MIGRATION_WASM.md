@@ -1,6 +1,6 @@
 # Architecture Compose Multiplatform Web (Wasm) & Cloudflare Pages — Needix
 
-Ce document détaille l'architecture de la version WebAssembly (Wasm) de **Needix**, conçue pour s'exécuter directement dans le navigateur sans installation ni serveur backend, et déployée sur **Cloudflare Pages** sous le chemin `/Needix/`.
+Ce document détaille l'architecture de la version WebAssembly (Wasm) de **Needix**, conçue pour s'exécuter directement dans le navigateur sans installation ni serveur backend, et déployée sur **Cloudflare Pages** sur le sous-domaine dédié `https://needix.app/`.
 
 ---
 
@@ -29,7 +29,7 @@ kotlin {
         moduleName = "needix"
         browser {
             val projectRootDir = project.rootDir.path
-            val distDir = File(projectRootDir, "web/Needix/wasm")
+            val distDir = File(projectRootDir, "web/wasm")
             commonWebpackConfig {
                 outputFileName = "needix.js"
                 outputPath = distDir
@@ -95,26 +95,23 @@ external object window {
 
 ---
 
-## 4. Déploiement Cloudflare Pages (`/Needix`)
+## 4. Déploiement Cloudflare Pages (`needix.app`)
 
 ### Structure des Dossiers Cloudflare :
 ```
 web/
-├── _headers               # En-têtes Wasm (application/wasm) et sécurité
-├── _redirects             # Redirection / -> /Needix/ (301)
-├── index.html             # Redirection immédiate vers /Needix/
-├── Needix/
-│   ├── index.html         # Landing page vitrine multilangue & Web App
-│   ├── sample-inventory.json # Jeu de données d'exemple
-│   ├── app/
-│   │   └── index.html     # Application Web plein écran
-│   ├── css/
-│   │   └── style.css      # Design Material 3 responsive
-│   └── js/
-│       ├── i18n.js        # Dictionnaire FR / EN / NL
-│       └── app.js         # Moteur File System Access API
-└── wrangler.toml          # Configuration Cloudflare Pages
+├── _headers              # En-têtes Wasm (application/wasm) et sécurité
+├── index.html            # Landing page vitrine multilangue & Web App à la racine (/)
+├── sample-inventory.json # Jeu de données d'exemple
+├── app/
+│   └── index.html        # Application Web plein écran
+├── css/
+│   └── style.css         # Design Material 3 responsive
+├── js/
+│   ├── i18n.js           # Dictionnaire FR / EN / NL
+│   └── app.js            # Moteur File System Access API
+└── wrangler.toml         # Configuration Cloudflare Pages
 ```
 
 ### Déploiement :
-Le projet est configuré avec `pages_build_output_dir = "web"`. Tout commit sur `main` déploie instantanément le site vitrine et la Web App sur Cloudflare Pages.
+Le projet est configuré avec `pages_build_output_dir = "web"`. Tout commit sur `main` déploie instantanément le site vitrine et la Web App à la racine de `https://needix.app/`.
