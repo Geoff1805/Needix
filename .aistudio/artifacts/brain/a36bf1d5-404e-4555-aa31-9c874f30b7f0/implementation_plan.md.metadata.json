@@ -1,6 +1,6 @@
 {
-  "summary":  "Plan d'implémentation pour Needix v0.6.0 intégrant :\n- L'automatisation des tests unitaires dans le pipeline GitHub Actions (exécution obligatoire bloquante à chaque push et avant toute release).\n- La suppression du déploiement direct automatisé vers les stores au profit d'un workflow de déploiement manuel avec attachement des artefacts finaux (.aab et archive Web) aux Releases GitHub.\n- Le maintien d'une architecture unifiée (100% commerciale, sans flavors) avec RevenueCat, export universel CSV/JSON, landing page Cloudflare avec PayPal SDK et validation de clé de licence.\n- Le récapitulatif détaillé des commandes Gradle pour la génération locale manuelle des paquets de production.",
-  "updatedAt":  "2026-10-11T09:37:38.754921383Z",
+  "summary":  "Mise à jour du Backlog et du plan d'implémentation Needix :\n- Ajout de l'élément [BACKLOG-WEB-05] : Correction du chemin de base (base path) Web pour le sous-domaine dédié https://needix.alsteens.net.\n- Spécifications de la balise <base href=\"/\"> dans index.html.\n- Élimination de l'arborescence /Needix/ dans les URLs, liens, redirections Cloudflare et code Kotlin (SyncScreen).\n- Appel de l'ensemble des assets web (CSS, JS, images) depuis la racine absolue du domaine.",
+  "updatedAt":  "2026-10-11T11:45:19.434157217Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

@@ -261,7 +261,7 @@ function handleExportCsv() {
 
 async function loadSampleData() {
   try {
-    const res = await fetch("sample-inventory.json");
+    const res = await fetch("/sample-inventory.json");
     if (res.ok) {
       inventoryData = await res.json();
     } else {
