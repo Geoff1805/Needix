@@ -4,13 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.InventoryItemEntity
+import com.example.data.model.StoreTypeEntity
 import com.example.data.network.ProductLookupResult
 import com.example.data.network.ProductLookupService
+import com.example.data.receipt.ParsedReceiptLine
+import com.example.data.receipt.ReceiptParser
 import com.example.data.repository.InventoryRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class ScannerUiState(
@@ -18,7 +22,8 @@ data class ScannerUiState(
     val isSearching: Boolean = false,
     val existingItem: InventoryItemEntity? = null,
     val onlineProduct: ProductLookupResult? = null,
-    val notFoundMessage: String? = null
+    val notFoundMessage: String? = null,
+    val receiptLines: List<ParsedReceiptLine> = emptyList()
 )
 
 data class DemoBarcode(
@@ -37,6 +42,9 @@ class ScannerViewModel(
     private val _uiEvents = MutableSharedFlow<String>()
     val uiEvents = _uiEvents.asSharedFlow()
 
+    private val _beepEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val beepEvents = _beepEvents.asSharedFlow()
+
     val demoBarcodes = listOf(
         DemoBarcode("3250390001001", "🥫 Huile d'olive Puget", "cuisine"),
         DemoBarcode("3017620422003", "🍫 Nutella 400g", "aliments"),
@@ -46,46 +54,60 @@ class ScannerViewModel(
         DemoBarcode("9782070612758", "📚 Le Petit Prince (ISBN)", "autre")
     )
 
-    fun onBarcodeDetected(barcode: String) {
+    fun onBarcodeDetected(barcode: String, forceNewScan: Boolean = false) {
         if (_uiState.value.isSearching) return
+        // Verrouillage anti-rebond : tant qu'un produit scanné est affiché pour validation,
+        // ignorer les nouvelles frames de la caméra jusqu'à l'ajout ou l'annulation.
+        if (!forceNewScan && _uiState.value.scannedBarcode != null) return
+
         val cleanBarcode = ProductLookupService.normalizeBarcode(barcode)
         if (cleanBarcode.isBlank()) return
 
-        viewModelScope.launch {
-            _uiState.value = ScannerUiState(scannedBarcode = cleanBarcode, isSearching = true)
+        // Émettre immédiatement le signal sonore (bip) et haptique
+        _beepEvents.tryEmit(Unit)
 
-            // 1. Check local inventory
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                scannedBarcode = cleanBarcode,
+                isSearching = true,
+                existingItem = null,
+                onlineProduct = null,
+                notFoundMessage = null
+            )
+
+            // 1. Vérifier d'abord l'inventaire local
             val localItem = inventoryRepository.getItemByBarcode(cleanBarcode)
             if (localItem != null) {
-                _uiState.value = ScannerUiState(
+                _uiState.value = _uiState.value.copy(
                     scannedBarcode = cleanBarcode,
                     isSearching = false,
                     existingItem = localItem
                 )
-                _uiEvents.emit("Article trouvé dans votre inventaire !")
+                _uiEvents.emit("Code-barres lu : « ${localItem.name} » est déjà en stock !")
                 return@launch
             }
 
-            // 2. Query Multi-API & Offline Open-Product-Database cascade
+            // 2. Interroger la cascade Multi-API & Base Hors-ligne Open-Product-Database
             val online = ProductLookupService.lookupBarcode(cleanBarcode)
             if (online != null) {
-                _uiState.value = ScannerUiState(
+                _uiState.value = _uiState.value.copy(
                     scannedBarcode = cleanBarcode,
                     isSearching = false,
                     onlineProduct = online
                 )
-                _uiEvents.emit("Produit identifié via ${online.source} !")
+                _uiEvents.emit("Code-barres lu : « ${online.name} » identifié (${online.source}) — prêt à ajouter !")
             } else {
-                _uiState.value = ScannerUiState(
+                _uiState.value = _uiState.value.copy(
                     scannedBarcode = cleanBarcode,
                     isSearching = false,
-                    notFoundMessage = "Code-barres non répertorié dans les bases mondiales. Vous pouvez l'ajouter manuellement !"
+                    notFoundMessage = "Code-barres lu ($cleanBarcode). Complétez le nom ci-dessous pour l'ajouter à votre inventaire !"
                 )
+                _uiEvents.emit("Code-barres $cleanBarcode détecté — prêt à ajouter !")
             }
         }
     }
 
-    fun quickIncrementExisting(item: InventoryItemEntity, storeTypes: List<com.example.data.model.StoreTypeEntity>) {
+    fun quickIncrementExisting(item: InventoryItemEntity, storeTypes: List<StoreTypeEntity>) {
         viewModelScope.launch {
             inventoryRepository.updateQuantity(item.id, item.quantity + 1, storeTypes)
             _uiEvents.emit("Quantité augmentée (+1) pour « ${item.name} »")
@@ -121,8 +143,96 @@ class ScannerViewModel(
         }
     }
 
+    // ---------------------------------------------------------
+    // Lecture de tickets de caisse numériques & Mise à jour stock
+    // ---------------------------------------------------------
+
+    fun analyzeDigitalReceipt(rawText: String) {
+        viewModelScope.launch {
+            val currentItems = inventoryRepository.allInventoryItems.first()
+            val parsed = ReceiptParser.parseReceiptText(rawText, currentItems)
+            _uiState.value = _uiState.value.copy(receiptLines = parsed)
+            if (parsed.isNotEmpty()) {
+                _beepEvents.tryEmit(Unit)
+                _uiEvents.emit("${parsed.size} produit(s) détecté(s) sur le ticket numérique !")
+            } else {
+                _uiEvents.emit("Aucun produit reconnu sur ce ticket.")
+            }
+        }
+    }
+
+    fun toggleReceiptLineSelection(index: Int) {
+        val current = _uiState.value.receiptLines.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(isSelected = !current[index].isSelected)
+            _uiState.value = _uiState.value.copy(receiptLines = current)
+        }
+    }
+
+    fun updateReceiptLineQuantity(index: Int, delta: Int) {
+        val current = _uiState.value.receiptLines.toMutableList()
+        if (index in current.indices) {
+            val newQty = (current[index].quantity + delta).coerceAtLeast(1)
+            current[index] = current[index].copy(quantity = newQty)
+            _uiState.value = _uiState.value.copy(receiptLines = current)
+        }
+    }
+
+    fun clearReceipt() {
+        _uiState.value = _uiState.value.copy(receiptLines = emptyList())
+    }
+
+    fun applyReceiptToInventory(storeTypes: List<StoreTypeEntity>) {
+        val selected = _uiState.value.receiptLines.filter { it.isSelected }
+        if (selected.isEmpty()) return
+
+        viewModelScope.launch {
+            var updatedCount = 0
+            var createdCount = 0
+            for (line in selected) {
+                val existing = line.matchedExistingItem
+                if (existing != null) {
+                    inventoryRepository.updateQuantity(
+                        existing.id,
+                        existing.quantity + line.quantity,
+                        storeTypes
+                    )
+                    updatedCount++
+                } else {
+                    inventoryRepository.saveItem(
+                        InventoryItemEntity(
+                            name = line.productName,
+                            categoryId = line.suggestedCategory,
+                            quantity = line.quantity,
+                            minThreshold = 1,
+                            unit = line.unit,
+                            preferredStoreId = storeTypes.firstOrNull()?.id ?: "supermarket",
+                            location = when (line.suggestedCategory) {
+                                "hygiene" -> "Salle de bain"
+                                "pharmacie" -> "Pharmacie"
+                                "bricolage" -> "Garage / Cave"
+                                else -> "Placard"
+                            },
+                            notes = "Importé depuis ticket numérique"
+                        ),
+                        storeTypes
+                    )
+                    createdCount++
+                }
+            }
+            _uiState.value = _uiState.value.copy(receiptLines = emptyList())
+            _uiEvents.emit("Inventaire mis à jour : $updatedCount réapprovisionné(s), $createdCount nouveau(x) produit(s) !")
+        }
+    }
+
     fun reset() {
-        _uiState.value = ScannerUiState()
+        _uiState.value = _uiState.value.copy(
+            scannedBarcode = null,
+            isSearching = false,
+            existingItem = null,
+            onlineProduct = null,
+            notFoundMessage = null
+        )
     }
 }
 

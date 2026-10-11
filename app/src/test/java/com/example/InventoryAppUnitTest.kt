@@ -13,6 +13,7 @@ import com.example.data.network.ChompFoodItem
 import com.example.data.network.OffProductDetails
 import com.example.data.network.OffProductResponse
 import com.example.data.network.ProductLookupService
+import com.example.data.receipt.ReceiptParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -252,5 +253,36 @@ class InventoryAppUnitTest {
         assertTrue(parsedChomp!!.name.contains("Oatly"))
         assertEquals("bouteille", parsedChomp.suggestedUnit)
         assertEquals(ProductLookupService.SOURCE_CHOMP_API, parsedChomp.source)
+    }
+
+    @Test
+    fun digitalReceiptParser_extractsProductsAndMatchesInventory() {
+        val existingInventory = listOf(
+            InventoryItemEntity(
+                id = 10L,
+                name = "Lait demi-écrémé Bio",
+                categoryId = "aliments",
+                quantity = 1,
+                unit = "L",
+                preferredStoreId = "bio",
+                location = "Frigo"
+            )
+        )
+
+        val lines = ReceiptParser.parseReceiptText(
+            ReceiptParser.SAMPLE_DIGITAL_RECEIPT,
+            existingInventory
+        )
+
+        assertTrue(lines.size >= 5)
+        val milkLine = lines.find { it.productName.contains("Lait", ignoreCase = true) }
+        assertNotNull(milkLine)
+        assertEquals(2, milkLine!!.quantity)
+        assertNotNull(milkLine.matchedExistingItem)
+        assertEquals(10L, milkLine.matchedExistingItem!!.id)
+
+        val showerGelLine = lines.find { it.productName.contains("Gel Douche", ignoreCase = true) }
+        assertNotNull(showerGelLine)
+        assertEquals("hygiene", showerGelLine!!.suggestedCategory)
     }
 }

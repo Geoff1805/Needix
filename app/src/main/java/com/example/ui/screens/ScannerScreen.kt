@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -32,16 +34,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,7 +63,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +77,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.CategoryEntity
 import com.example.data.model.StoreTypeEntity
 import com.example.data.network.ProductLookupService
+import com.example.data.receipt.ReceiptParser
 import com.example.ui.components.StockBadge
 import com.example.ui.viewmodel.ScannerUiState
 import com.example.ui.viewmodel.ScannerViewModel
@@ -88,9 +96,33 @@ fun ScannerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val haptic = LocalHapticFeedback.current
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         ProductLookupService.ensureOfflineDatabaseLoaded(context)
+    }
+
+    // Bip sonore + retour haptique dès qu'un code-barres est lu
+    LaunchedEffect(viewModel) {
+        viewModel.beepEvents.collect {
+            try {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            } catch (_: Exception) {
+            }
+            try {
+                val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    // Remonter automatiquement vers la proposition d'ajout dès qu'un produit est détecté
+    LaunchedEffect(uiState.scannedBarcode, uiState.isSearching) {
+        if (uiState.scannedBarcode != null && !uiState.isSearching) {
+            scrollState.animateScrollTo(0)
+        }
     }
 
     var hasCameraPermission by remember {
@@ -108,12 +140,29 @@ fun ScannerScreen(
         hasCameraPermission = isGranted
     }
 
+    var activeMode by remember { mutableStateOf("barcode") } // "barcode" ou "receipt"
     var manualCodeInput by remember { mutableStateOf("") }
+    var digitalReceiptInput by remember { mutableStateOf("") }
+
+    val receiptFilePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                if (!content.isNullOrBlank()) {
+                    digitalReceiptInput = content
+                    viewModel.analyzeDigitalReceipt(content)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(16.dp)
             .padding(bottom = 80.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -121,360 +170,564 @@ fun ScannerScreen(
         // Screen title
         Column {
             Text(
-                text = "Scanner universel Multi-API",
+                text = "Scanner & Tickets numériques",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                text = "Alimentation (Open Food Facts, Chomp), Cosmétiques (Open Beauty Facts), Maison (Open Products Facts), Livres (Inventaire.io) & Base hors-ligne",
+                text = "Scannez un code-barres (avec bip & ajout immédiat) ou importez un ticket de caisse numérique pour mettre à jour votre stock.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        // Camera viewfinder or Permission Banner
-        if (hasCameraPermission) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-                val barcodeScanner = remember {
-                    val options = BarcodeScannerOptions.Builder()
-                        .setBarcodeFormats(
-                            Barcode.FORMAT_EAN_13,
-                            Barcode.FORMAT_EAN_8,
-                            Barcode.FORMAT_UPC_A,
-                            Barcode.FORMAT_UPC_E,
-                            Barcode.FORMAT_QR_CODE,
-                            Barcode.FORMAT_CODE_128,
-                            Barcode.FORMAT_CODE_39,
-                            Barcode.FORMAT_ITF
-                        )
-                        .build()
-                    BarcodeScanning.getClient(options)
-                }
-
-                DisposableEffect(Unit) {
-                    onDispose {
-                        barcodeScanner.close()
-                        cameraExecutor.shutdown()
-                    }
-                }
-
-                AndroidView(
-                    factory = { ctx ->
-                        val previewView = PreviewView(ctx)
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-
-                        cameraProviderFuture.addListener({
-                            val cameraProvider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.surfaceProvider = previewView.surfaceProvider
-                            }
-
-                            val imageAnalysis = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                .build()
-
-                            imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                                val mediaImage = imageProxy.image
-                                if (mediaImage != null) {
-                                    val image = InputImage.fromMediaImage(
-                                        mediaImage,
-                                        imageProxy.imageInfo.rotationDegrees
-                                    )
-                                    barcodeScanner.process(image)
-                                        .addOnSuccessListener { barcodes ->
-                                            barcodes.firstOrNull()?.rawValue?.let { code ->
-                                                viewModel.onBarcodeDetected(code)
-                                            }
-                                        }
-                                        .addOnCompleteListener {
-                                            imageProxy.close()
-                                        }
-                                } else {
-                                    imageProxy.close()
-                                }
-                            }
-
-                            try {
-                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_BACK_CAMERA,
-                                    preview,
-                                    imageAnalysis
-                                )
-                            } catch (_: Exception) {
-                            }
-                        }, ContextCompat.getMainExecutor(ctx))
-
-                        previewView
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Laser scan frame overlay
-                Box(
-                    modifier = Modifier
-                        .size(200.dp, 130.dp)
-                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                )
-
-                // Red scanning guide beam
-                Box(
-                    modifier = Modifier
-                        .size(180.dp, 2.dp)
-                        .background(Color(0xFFF43F5E))
-                )
-            }
-        } else {
-            // Permission request card
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Activer la caméra pour scanner",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "L'accès à la caméra permet de scanner instantanément les codes EAN, UPC et ISBN de vos produits.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Button(
-                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text("Autoriser la caméra")
-                    }
-                }
-            }
-        }
-
-        // Quick Testing Barcodes (Indispensable for browser emulator testing!)
-        Column {
-            Text(
-                text = "⚡ Tester un code-barres (simulateur multi-catégories) :",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(viewModel.demoBarcodes) { demo ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.clickable {
-                            viewModel.onBarcodeDetected(demo.code)
-                        }
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(
-                                text = demo.label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = demo.code,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Manual Barcode Input
+        // Sélecteur de mode : Scanner Code-barres vs Ticket de caisse numérique
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
-                value = manualCodeInput,
-                onValueChange = { manualCodeInput = it },
-                label = { Text("Saisie manuelle code EAN / UPC / ISBN") },
-                placeholder = { Text("Ex: 3250390001001 ou 9782070612758") },
-                singleLine = true,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("manual_barcode_input")
+            FilterChip(
+                selected = activeMode == "barcode",
+                onClick = { activeMode = "barcode" },
+                label = { Text("📷 Scanner Code-barres") },
+                modifier = Modifier.weight(1f)
             )
-            Button(
-                onClick = {
-                    if (manualCodeInput.isNotBlank()) {
-                        viewModel.onBarcodeDetected(manualCodeInput)
-                    }
-                },
-                enabled = manualCodeInput.isNotBlank(),
-                modifier = Modifier.testTag("manual_barcode_search_btn")
-            ) {
-                Icon(Icons.Default.Search, contentDescription = "Rechercher")
-            }
+            FilterChip(
+                selected = activeMode == "receipt",
+                onClick = { activeMode = "receipt" },
+                label = { Text("🧾 Ticket numérique") },
+                modifier = Modifier.weight(1f)
+            )
         }
 
-        // Status / Loading
-        if (uiState.isSearching) {
+        if (activeMode == "barcode") {
+            // =========================================================================
+            // PROPOSITION PRIORITAIRE EN HAUT D'ÉCRAN DÈS QU'UN CODE-BARRES EST LU
+            // =========================================================================
+
+            if (uiState.isSearching) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("🔊 Bip ! Lecture du code ${uiState.scannedBarcode ?: ""} en cours...")
+                }
+            }
+
+            // Résultat 1 : Article déjà présent dans l'inventaire local
+            if (uiState.existingItem != null) {
+                val item = uiState.existingItem
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = Color(0xFFEFF6FF)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF2563EB)
+                            )
+                            Text(
+                                text = "🔊 Code-barres lu — Article déjà en stock !",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1D4ED8)
+                            )
+                        }
+
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            StockBadge(quantity = item.quantity, minThreshold = item.minThreshold)
+                            Text(
+                                text = "Emplacement : ${item.location}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.quickIncrementExisting(item, storeTypes) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ajouter +1 au stock")
+                            }
+
+                            FilledTonalButton(onClick = { viewModel.reset() }) {
+                                Text("Scanner un autre")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Résultat 2 : Produit identifié via Base hors-ligne ou Multi-API -> Proposition d'ajout immédiate
+            if (uiState.onlineProduct != null) {
+                val prod = uiState.onlineProduct
+                NewScannedProductForm(
+                    barcode = prod.barcode,
+                    defaultName = prod.name,
+                    suggestedCategory = prod.suggestedCategory,
+                    suggestedUnit = prod.suggestedUnit,
+                    suggestedNotes = prod.suggestedNotes,
+                    sourceName = prod.source,
+                    nutriScore = prod.nutriScore,
+                    allergens = prod.allergens,
+                    imageUrl = prod.imageUrl,
+                    categories = categories,
+                    storeTypes = storeTypes,
+                    onAdd = { name, cat, qty, unit, store, loc, notes ->
+                        viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
+                    },
+                    onCancel = { viewModel.reset() }
+                )
+            }
+
+            // Résultat 3 : Code-barres lu mais inconnu des bases -> Proposition de création immédiate
+            if (uiState.notFoundMessage != null && uiState.existingItem == null && uiState.onlineProduct == null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "🔊 Code-barres détecté : ${uiState.scannedBarcode}",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = uiState.notFoundMessage,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        NewScannedProductForm(
+                            barcode = uiState.scannedBarcode ?: "",
+                            defaultName = "",
+                            suggestedCategory = "autre",
+                            suggestedUnit = "pièce",
+                            suggestedNotes = "",
+                            sourceName = null,
+                            nutriScore = null,
+                            allergens = null,
+                            imageUrl = null,
+                            categories = categories,
+                            storeTypes = storeTypes,
+                            onAdd = { name, cat, qty, unit, store, loc, notes ->
+                                viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
+                            },
+                            onCancel = { viewModel.reset() }
+                        )
+                    }
+                }
+            }
+
+            // Camera viewfinder or Permission Banner
+            if (hasCameraPermission) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+                    val barcodeScanner = remember {
+                        val options = BarcodeScannerOptions.Builder()
+                            .setBarcodeFormats(
+                                Barcode.FORMAT_EAN_13,
+                                Barcode.FORMAT_EAN_8,
+                                Barcode.FORMAT_UPC_A,
+                                Barcode.FORMAT_UPC_E,
+                                Barcode.FORMAT_QR_CODE,
+                                Barcode.FORMAT_CODE_128,
+                                Barcode.FORMAT_CODE_39,
+                                Barcode.FORMAT_ITF
+                            )
+                            .build()
+                        BarcodeScanning.getClient(options)
+                    }
+
+                    DisposableEffect(Unit) {
+                        onDispose {
+                            barcodeScanner.close()
+                            cameraExecutor.shutdown()
+                        }
+                    }
+
+                    AndroidView(
+                        factory = { ctx ->
+                            val previewView = PreviewView(ctx)
+                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+
+                            cameraProviderFuture.addListener({
+                                val cameraProvider = cameraProviderFuture.get()
+                                val preview = Preview.Builder().build().also {
+                                    it.surfaceProvider = previewView.surfaceProvider
+                                }
+
+                                val imageAnalysis = ImageAnalysis.Builder()
+                                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                    .build()
+
+                                imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                                    val mediaImage = imageProxy.image
+                                    if (mediaImage != null) {
+                                        val image = InputImage.fromMediaImage(
+                                            mediaImage,
+                                            imageProxy.imageInfo.rotationDegrees
+                                        )
+                                        barcodeScanner.process(image)
+                                            .addOnSuccessListener { barcodes ->
+                                                barcodes.firstOrNull()?.rawValue?.let { code ->
+                                                    viewModel.onBarcodeDetected(code, forceNewScan = false)
+                                                }
+                                            }
+                                            .addOnCompleteListener {
+                                                imageProxy.close()
+                                            }
+                                    } else {
+                                        imageProxy.close()
+                                    }
+                                }
+
+                                try {
+                                    cameraProvider.unbindAll()
+                                    cameraProvider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview,
+                                        imageAnalysis
+                                    )
+                                } catch (_: Exception) {
+                                }
+                            }, ContextCompat.getMainExecutor(ctx))
+
+                            previewView
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Laser scan frame overlay
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp, 130.dp)
+                            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                    )
+
+                    // Red scanning guide beam
+                    Box(
+                        modifier = Modifier
+                            .size(180.dp, 2.dp)
+                            .background(Color(0xFFF43F5E))
+                    )
+                }
+            } else {
+                // Permission request card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(44.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Activer la caméra pour scanner",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "L'accès à la caméra permet de scanner instantanément les codes EAN, UPC et ISBN avec bip sonore et proposition immédiate d'ajout.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Button(
+                            onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text("Autoriser la caméra")
+                        }
+                    }
+                }
+            }
+
+            // Quick Testing Barcodes
+            Column {
+                Text(
+                    text = "⚡ Tester un code-barres (simulateur multi-catégories avec bip) :",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(viewModel.demoBarcodes) { demo ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.clickable {
+                                viewModel.onBarcodeDetected(demo.code, forceNewScan = true)
+                            }
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                Text(
+                                    text = demo.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = demo.code,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Manual Barcode Input
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Interrogation des bases produits en cours...")
+                OutlinedTextField(
+                    value = manualCodeInput,
+                    onValueChange = { manualCodeInput = it },
+                    label = { Text("Saisie manuelle code EAN / UPC / ISBN") },
+                    placeholder = { Text("Ex: 3250390001001 ou 9782070612758") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("manual_barcode_input")
+                )
+                Button(
+                    onClick = {
+                        if (manualCodeInput.isNotBlank()) {
+                            viewModel.onBarcodeDetected(manualCodeInput, forceNewScan = true)
+                        }
+                    },
+                    enabled = manualCodeInput.isNotBlank(),
+                    modifier = Modifier.testTag("manual_barcode_search_btn")
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = "Rechercher")
+                }
             }
-        }
-
-        // Result 1: Product already in local inventory!
-        if (uiState.existingItem != null) {
-            val item = uiState.existingItem
+        } else {
+            // =========================================================================
+            // MODE LECTURE DE TICKET DE CAISSE NUMÉRIQUE ([BACKLOG-RECEIPT-08])
+            // =========================================================================
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = Color(0xFFEFF6FF)
-                )
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle,
+                            imageVector = Icons.Default.Receipt,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB)
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Article déjà en stock !",
+                            text = "Lecteur de Ticket Numérique",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1D4ED8)
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
                     Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        text = "Importez un fichier de ticket de caisse numérique (.txt, .html, .eml) ou collez son contenu ci-dessous pour identifier les articles achetés et mettre à jour votre stock automatiquement.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        StockBadge(quantity = item.quantity, minThreshold = item.minThreshold)
-                        Text(
-                            text = "Emplacement : ${item.location}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = { viewModel.quickIncrementExisting(item, storeTypes) },
+                        OutlinedButton(
+                            onClick = {
+                                receiptFilePicker.launch(arrayOf("text/*", "message/rfc822", "application/octet-stream"))
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Ajouter +1 au stock")
+                            Text("📂 Fichier ticket")
                         }
+                        FilledTonalButton(
+                            onClick = {
+                                digitalReceiptInput = ReceiptParser.SAMPLE_DIGITAL_RECEIPT.trimIndent()
+                                viewModel.analyzeDigitalReceipt(digitalReceiptInput)
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("✨ Exemple ticket")
+                        }
+                    }
 
-                        FilledTonalButton(onClick = { viewModel.reset() }) {
-                            Text("Scanner un autre")
-                        }
+                    OutlinedTextField(
+                        value = digitalReceiptInput,
+                        onValueChange = { digitalReceiptInput = it },
+                        label = { Text("Contenu du ticket numérique (e-mail, texte, OCR)") },
+                        placeholder = { Text("Collez ici les lignes de votre ticket de caisse...") },
+                        minLines = 4,
+                        maxLines = 8,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("digital_receipt_input")
+                    )
+
+                    Button(
+                        onClick = { viewModel.analyzeDigitalReceipt(digitalReceiptInput) },
+                        enabled = digitalReceiptInput.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("analyze_receipt_btn")
+                    ) {
+                        Text("🔍 Analyser le ticket et proposer la mise à jour")
                     }
                 }
             }
-        }
 
-        // Result 2: Product found via Offline DB or Multi-API cascade!
-        if (uiState.onlineProduct != null) {
-            val prod = uiState.onlineProduct
-            NewScannedProductForm(
-                barcode = prod.barcode,
-                defaultName = prod.name,
-                suggestedCategory = prod.suggestedCategory,
-                suggestedUnit = prod.suggestedUnit,
-                suggestedNotes = prod.suggestedNotes,
-                sourceName = prod.source,
-                nutriScore = prod.nutriScore,
-                allergens = prod.allergens,
-                imageUrl = prod.imageUrl,
-                categories = categories,
-                storeTypes = storeTypes,
-                onAdd = { name, cat, qty, unit, store, loc, notes ->
-                    viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
-                },
-                onCancel = { viewModel.reset() }
-            )
-        }
-
-        // Result 3: Product not recognized online or locally -> manual creation with barcode
-        if (uiState.notFoundMessage != null && uiState.existingItem == null && uiState.onlineProduct == null) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (uiState.receiptLines.isNotEmpty()) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(
-                        text = "Code-barres : ${uiState.scannedBarcode}",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = uiState.notFoundMessage,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Produits détectés sur le ticket (${uiState.receiptLines.count { it.isSelected }}/${uiState.receiptLines.size} sélectionnés)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    NewScannedProductForm(
-                        barcode = uiState.scannedBarcode ?: "",
-                        defaultName = "",
-                        suggestedCategory = "autre",
-                        suggestedUnit = "pièce",
-                        suggestedNotes = "",
-                        sourceName = null,
-                        nutriScore = null,
-                        allergens = null,
-                        imageUrl = null,
-                        categories = categories,
-                        storeTypes = storeTypes,
-                        onAdd = { name, cat, qty, unit, store, loc, notes ->
-                            viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
-                        },
-                        onCancel = { viewModel.reset() }
-                    )
+                        uiState.receiptLines.forEachIndexed { index, line ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Checkbox(
+                                            checked = line.isSelected,
+                                            onCheckedChange = { viewModel.toggleReceiptLineSelection(index) }
+                                        )
+                                        Column {
+                                            Text(
+                                                text = line.productName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            val badgeText = if (line.matchedExistingItem != null) {
+                                                "🔄 En stock (${line.matchedExistingItem.quantity}) → +${line.quantity}"
+                                            } else {
+                                                "✨ Nouvel article (${line.suggestedCategory})"
+                                            }
+                                            Text(
+                                                text = badgeText,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (line.matchedExistingItem != null) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.secondary
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        TextButton(onClick = { viewModel.updateReceiptLineQuantity(index, -1) }) {
+                                            Text("-", fontWeight = FontWeight.ExtraBold)
+                                        }
+                                        Text(
+                                            text = "${line.quantity}",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        TextButton(onClick = { viewModel.updateReceiptLineQuantity(index, 1) }) {
+                                            Text("+", fontWeight = FontWeight.ExtraBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.applyReceiptToInventory(storeTypes) },
+                                enabled = uiState.receiptLines.any { it.isSelected },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("✓ Mettre à jour l'inventaire")
+                            }
+                            TextButton(onClick = { viewModel.clearReceipt() }) {
+                                Text("Annuler")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -520,7 +773,9 @@ fun NewScannedProductForm(
     var notes by remember(barcode, suggestedNotes) { mutableStateOf(suggestedNotes) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -540,7 +795,7 @@ fun NewScannedProductForm(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "✓ Source : $sourceName",
+                            text = "🔊 Code-barres lu • Source : $sourceName",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -587,7 +842,7 @@ fun NewScannedProductForm(
                 }
                 Column {
                     Text(
-                        text = "Ajouter à votre inventaire",
+                        text = "Voulez-vous ajouter ce produit au stock ?",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -679,7 +934,7 @@ fun NewScannedProductForm(
                 }
 
                 TextButton(onClick = onCancel) {
-                    Text("Annuler")
+                    Text("Scanner un autre")
                 }
             }
         }
