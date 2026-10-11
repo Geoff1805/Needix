@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Needix Web App — Gestionnaire d'inventaire local (Wasm/HTML5)</title>
+  <meta name="description" content="Version Web de Needix : manipulez votre fichier d'inventaire JSON localement via l'API standard File System Access.">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%2232%22%20height=%2232%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2310b981%22/><text x=%2216%22 y=%2222%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22white%22>📦</text></svg>">
+</head>
+<body style="background: #080c14;">
+
+  <input type="file" id="fallback-file-input" accept=".json,application/json" style="display: none;">
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-bar">
+      <a href="../" class="brand-logo">
+        <div class="brand-icon">📦</div>
+        <span>Needix <small style="font-size: 0.8rem; font-weight: 500; color: #10b981;">Web App</small></span>
+      </a>
+
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <select id="lang-select" class="lang-selector" onchange="setLanguage(this.value)">
+          <option value="fr">🇫🇷 Français</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="nl">🇳🇱 Nederlands</option>
+        </select>
+        <a href="../" class="btn-action" style="font-size: 0.85rem;">← Retour au site</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Full App Box -->
+  <main class="container" style="padding: 30px 20px;">
+    <div class="app-container-box">
+      <!-- Toolbar -->
+      <div class="app-toolbar">
+        <div class="toolbar-actions">
+          <button id="btn-open-file" class="btn-action" title="Ouvrir un fichier .json depuis votre ordinateur">
+            <span>📂</span> <span data-i18n="btn_open_file">Ouvrir mon fichier JSON</span>
+          </button>
+          <button id="btn-save-file" class="btn-action btn-save-main" title="Enregistrer directement dans le fichier ouvert">
+            <span>💾</span> <span data-i18n="btn_save_file">Enregistrer les modifications</span>
+          </button>
+          <button id="btn-download-json" class="btn-action" title="Télécharger une copie JSON">
+            <span>⬇️</span> <span data-i18n="btn_download_json">Télécharger JSON</span>
+          </button>
+          <button id="btn-export-csv" class="btn-action" title="Exporter en tableur CSV">
+            <span>📊</span> <span data-i18n="btn_export_csv">Exporter CSV</span>
+          </button>
+          <button id="btn-load-sample" class="btn-action" title="Charger un jeu de données d'exemple">
+            <span>✨</span> <span data-i18n="btn_load_sample">Charger un exemple</span>
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div id="file-status-badge" style="font-size: 0.85rem; color: #94a3b8;">
+            <span class="status-dot"></span> <span data-i18n="file_not_connected">Aucun fichier ouvert</span>
+          </div>
+          <div id="save-indicator"></div>
+        </div>
+      </div>
+
+      <!-- Stats Chips -->
+      <div class="app-stats-row">
+        <div class="stat-box">
+          <div id="stat-total" class="stat-val">0</div>
+          <div class="stat-lbl" data-i18n="stat_total_items">Articles au total</div>
+        </div>
+        <div class="stat-box">
+          <div id="stat-low" class="stat-val" style="color: #fbbf24;">0</div>
+          <div class="stat-lbl" data-i18n="stat_low_stock">En stock bas</div>
+        </div>
+        <div class="stat-box">
+          <div id="stat-exp" class="stat-val" style="color: #f87171;">0</div>
+          <div class="stat-lbl" data-i18n="stat_expiring">À consommer d'urgence</div>
+        </div>
+        <div class="stat-box">
+          <div id="stat-shop" class="stat-val" style="color: #60a5fa;">0</div>
+          <div class="stat-lbl" data-i18n="stat_shopping">À acheter</div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="app-controls-row">
+        <div class="app-tabs-group">
+          <button id="tab-btn-inv" class="app-tab-btn active" data-i18n="tab_inventory">📦 Inventaire</button>
+          <button id="tab-btn-shop" class="app-tab-btn" data-i18n="tab_shopping">🛒 Liste de courses</button>
+        </div>
+
+        <div class="filter-search-group">
+          <input type="text" id="search-input" class="input-search" placeholder="Rechercher un produit..." data-i18n-placeholder="search_placeholder">
+          <select id="location-filter" class="select-filter">
+            <option value="all" data-i18n="filter_all_locations">Tous les emplacements</option>
+            <option value="Frigo" data-i18n="filter_fridge">Frigo</option>
+            <option value="Placard" data-i18n="filter_cupboard">Placard</option>
+            <option value="Congélateur" data-i18n="filter_freezer">Congélateur</option>
+            <option value="Cave" data-i18n="filter_cellar">Cave</option>
+            <option value="Salle de bain" data-i18n="filter_bathroom">Salle de bain</option>
+          </select>
+        </div>
+
+        <button id="btn-add-item" class="btn-add-primary" data-i18n="btn_add_item">+ Ajouter un article</button>
+      </div>
+
+      <!-- Content -->
+      <div class="app-content-body">
+        <div id="view-inventory">
+          <div id="inventory-items-container"></div>
+        </div>
+        <div id="view-shopping" style="display: none;">
+          <div id="shopping-list-container"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="item-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 id="modal-title" data-i18n="add_modal_title">Ajouter un article</h3>
+        <button id="modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <form id="item-modal-form">
+        <div class="modal-body">
+          <input type="hidden" id="modal-item-id">
+          <div class="form-group">
+            <label for="item-name" data-i18n="lbl_name">Nom du produit *</label>
+            <input type="text" id="item-name" class="form-control" required placeholder="ex: Lait d'amande Bio">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-location" data-i18n="lbl_location">Emplacement</label>
+              <select id="item-location" class="form-control">
+                <option value="Frigo">Frigo</option>
+                <option value="Placard">Placard</option>
+                <option value="Congélateur">Congélateur</option>
+                <option value="Cave">Cave</option>
+                <option value="Salle de bain">Salle de bain</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="item-category" data-i18n="lbl_category">Catégorie</label>
+              <select id="item-category" class="form-control">
+                <option value="Épicerie salée">Épicerie salée</option>
+                <option value="Épicerie sucrée">Épicerie sucrée</option>
+                <option value="Produits laitiers">Produits laitiers</option>
+                <option value="Fruits & Légumes">Fruits & Légumes</option>
+                <option value="Viandes & Poissons">Viandes & Poissons</option>
+                <option value="Boissons & Café">Boissons & Café</option>
+                <option value="Condiments & Huiles">Condiments & Huiles</option>
+                <option value="Hygiène & Entretien">Hygiène & Entretien</option>
+                <option value="Divers">Divers</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-quantity" data-i18n="lbl_quantity">Quantité actuelle</label>
+              <input type="number" step="any" min="0" id="item-quantity" class="form-control" value="1" required>
+            </div>
+            <div class="form-group">
+              <label for="item-min-quantity" data-i18n="lbl_min_quantity">Seuil minimal d'alerte</label>
+              <input type="number" step="any" min="0" id="item-min-quantity" class="form-control" value="1" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-unit" data-i18n="lbl_unit">Unité</label>
+              <input type="text" id="item-unit" class="form-control" value="pièce(s)">
+            </div>
+            <div class="form-group">
+              <label for="item-expiry" data-i18n="lbl_expiry">Date de péremption</label>
+              <input type="date" id="item-expiry" class="form-control">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-store" data-i18n="lbl_store">Magasin habituel</label>
+              <input type="text" id="item-store" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="item-barcode" data-i18n="lbl_barcode">Code-barres</label>
+              <input type="text" id="item-barcode" class="form-control">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="item-notes" data-i18n="lbl_notes">Notes / Précisions</label>
+            <input type="text" id="item-notes" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="modal-cancel-btn" class="btn-action" data-i18n="btn_cancel">Annuler</button>
+          <button type="submit" class="btn-action btn-save-main" data-i18n="btn_save">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="../js/i18n.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    setLanguage(currentLang);
+  </script>
+</body>
+</html>

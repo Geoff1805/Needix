@@ -14,7 +14,7 @@ const I18N = {
     hero_cta_mobile: "Télécharger l'application Mobile",
     hero_badge_privacy: "Zéro compte requis • Stockage 100% local",
     hero_badge_cloud_free: "Sans vendor lock-in • JSON/CSV ouverts",
-    hero_badge_foss: "Modèle Open-Source & FOSS",
+    hero_badge_green: "Éco-conçu & Souverain • Green IT",
 
     // Concept Highlights
     pill_indep: "Indépendance Totale",
@@ -31,7 +31,6 @@ const I18N = {
     store_apple: "Télécharger sur l'App Store",
     store_amazon: "Disponible sur Amazon Appstore",
     store_samsung: "Disponible sur Samsung Galaxy Store",
-    store_fdroid: "Version 100% FOSS sur F-Droid",
     store_coming_soon: "Bientôt disponible",
 
     // How it works
@@ -55,8 +54,6 @@ const I18N = {
     faq_a2: "La version Web utilise l'API standard HTML5 'File System Access' (et WebAssembly). Cela permet à votre navigateur d'ouvrir et de modifier directement un fichier JSON sur votre disque dur ou clé USB, sans qu'aucun octet ne transite par un serveur externe.",
     faq_q3: "Puis-je synchroniser mes données entre mon téléphone et mon PC ?",
     faq_a3: "Oui ! Il vous suffit d'exporter votre fichier JSON depuis l'application mobile (via le sélecteur Android SAF vers votre dossier local ou un dossier synchronisé comme Nextcloud / Google Drive) et de l'ouvrir directement dans la version Web.",
-    faq_q4: "Quelle est la différence entre la version F-Droid et la version commerciale ?",
-    faq_a4: "La version F-Droid est 100% open-source et gratuite, avec possibilité de soutenir le développement par des dons volontaires (GitHub Sponsors, Liberapay, PayPal). La version des stores commerciaux intègre une période d'essai de 14 jours puis un déblocage complet.",
     faq_q5: "Comment sauvegarder ou restaurer mon inventaire en cas de changement d'appareil ?",
     faq_a5: "Rendez-vous dans l'écran 'Export / Import' de l'application, cliquez sur 'Exporter mon inventaire en JSON' et enregistrez le fichier. Sur le nouvel appareil, cliquez simplement sur 'Restaurer depuis un fichier JSON' pour tout retrouver instantanément.",
 
@@ -104,7 +101,7 @@ const I18N = {
     lbl_notes: "Notes",
     btn_cancel: "Annuler",
     btn_save: "Enregistrer l'article",
-    footer_text: "Needix • Projet Open-Source éco-conçu (Green IT) sous licence Apache 2.0."
+    footer_text: "Needix • Application éco-conçue (Green IT) propriétaire. Tous droits réservés."
   },
 
   en: {
@@ -121,7 +118,7 @@ const I18N = {
     hero_cta_mobile: "Download Mobile App",
     hero_badge_privacy: "Zero account required • 100% Local storage",
     hero_badge_cloud_free: "No vendor lock-in • Open JSON/CSV standards",
-    hero_badge_foss: "Open-Source & FOSS Model",
+    hero_badge_green: "Eco-designed & Sovereign • Green IT",
 
     // Concept Highlights
     pill_indep: "Total Independence",
@@ -138,7 +135,6 @@ const I18N = {
     store_apple: "Download on App Store",
     store_amazon: "Available on Amazon Appstore",
     store_samsung: "Available on Samsung Galaxy Store",
-    store_fdroid: "100% FOSS version on F-Droid",
     store_coming_soon: "Coming soon",
 
     // How it works
@@ -162,8 +158,6 @@ const I18N = {
     faq_a2: "The Web version leverages the standard HTML5 File System Access API. It allows your browser to read and edit your local JSON file directly on your hard drive without any backend server.",
     faq_q3: "Can I synchronize my data between my phone and my PC?",
     faq_a3: "Yes! Simply export your JSON file from the mobile app (using Android SAF to a synced folder like Nextcloud / Google Drive) and open it directly in the Web app.",
-    faq_q4: "What is the difference between F-Droid and commercial store releases?",
-    faq_a4: "The F-Droid release is 100% free and open-source, supported by voluntary donations (GitHub Sponsors, Liberapay, PayPal). The commercial store release offers a 14-day free trial followed by full access.",
     faq_q5: "How do I backup or transfer my inventory to a new device?",
     faq_a5: "Go to the 'Export / Import' screen, click 'Export inventory to JSON', and save the file. On your new device, simply click 'Restore from JSON' to recover everything.",
 
@@ -211,7 +205,7 @@ const I18N = {
     lbl_notes: "Notes",
     btn_cancel: "Cancel",
     btn_save: "Save Item",
-    footer_text: "Needix • Eco-designed (Green IT) Open-Source project under Apache 2.0 License."
+    footer_text: "Needix • Eco-designed (Green IT) proprietary software. All Rights Reserved."
   },
 
   nl: {
@@ -228,7 +222,7 @@ const I18N = {
     hero_cta_mobile: "Download Mobiele App",
     hero_badge_privacy: "Geen account vereist • 100% Lokale opslag",
     hero_badge_cloud_free: "Geen vendor lock-in • Open JSON/CSV standaarden",
-    hero_badge_foss: "Open-Source & FOSS-model",
+    hero_badge_green: "Ecologisch ontworpen & Soeverein • Green IT",
 
     // Concept Highlights
     pill_indep: "Totale Onafhankelijkheid",
@@ -245,7 +239,6 @@ const I18N = {
     store_apple: "Downloaden in de App Store",
     store_amazon: "Beschikbaar in Amazon Appstore",
     store_samsung: "Beschikbaar in Samsung Galaxy Store",
-    store_fdroid: "100% FOSS-versie op F-Droid",
     store_coming_soon: "Binnenkort beschikbaar",
 
     // How it works
@@ -269,8 +262,6 @@ const I18N = {
     faq_a2: "De webversie gebruikt de HTML5 File System Access API. Hierdoor kan uw browser rechtstreeks een JSON-bestand op uw computer openen en bewerken zonder externe server.",
     faq_q3: "Kan ik gegevens synchroniseren tussen telefoon en computer?",
     faq_a3: "Ja! Exporteer eenvoudig uw JSON-bestand vanuit de mobiele app naar een gesynchroniseerde map (bijv. Nextcloud of Drive) en open het in de webapp.",
-    faq_q4: "Wat is het verschil tussen F-Droid en de commerciële versie?",
-    faq_a4: "De F-Droid-versie is 100% gratis en open source, ondersteund door vrijwillige donaties. De commerciële winkelversie biedt een proefperiode van 14 dagen met aansluitend volledige toegang.",
     faq_q5: "Hoe maak ik een back-up bij verandering van apparaat?",
     faq_a5: "Ga naar het scherm 'Export / Import', klik op 'Voorraad exporteren als JSON' en bewaar het bestand. Op uw nieuwe apparaat klikt u op 'Herstellen via JSON'.",
 
@@ -318,7 +309,7 @@ const I18N = {
     lbl_notes: "Notities",
     btn_cancel: "Annuleren",
     btn_save: "Artikel opslaan",
-    footer_text: "Needix • Ecologisch ontworpen (Green IT) Open-Source project onder Apache 2.0-licentie."
+    footer_text: "Needix • Ecologisch ontworpen (Green IT) propriëtaire software. Alle rechten voorbehouden."
   }
 };
 

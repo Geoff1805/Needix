@@ -16,6 +16,8 @@ Tous les tests unitaires (couvrant la logique métier, l'accès aux abonnements 
 gradle :app:testDebugUnitTest
 ```
 
+> **Prérequis Java** : Le projet ciblant le SDK Android 36, l'environnement d'exécution (local et GitHub Actions) nécessite **Java 21 (JDK 21)** pour permettre l'exécution de la sandbox de test Robolectric (`ExampleRobolectricTest`).
+
 Les rapports HTML détaillés sont générés dans :
 `app/build/reports/tests/testDebugUnitTest/index.html`
 
