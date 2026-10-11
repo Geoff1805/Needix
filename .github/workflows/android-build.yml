@@ -29,7 +29,7 @@ jobs:
 
     steps:
     - name: Récupérer le code source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Configurer Java 21 (Temurin)
       uses: actions/setup-java@v5
@@ -59,7 +59,7 @@ jobs:
 
     steps:
     - name: Récupérer le code source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Configurer Java 21 (Temurin)
       uses: actions/setup-java@v5
