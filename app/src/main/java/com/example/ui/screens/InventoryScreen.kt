@@ -293,7 +293,11 @@ fun InventoryScreen(
             onSave = { newItem ->
                 viewModel.saveItem(newItem)
                 showAddDialog = false
-            }
+            },
+            onDeleteCategory = { viewModel.deleteCategory(it) },
+            onDeleteStoreType = { viewModel.deleteStoreType(it) },
+            onAddCategory = { name, emoji, color -> viewModel.addCategory(name, emoji, color) },
+            onAddStoreType = { name, emoji, color -> viewModel.addStoreType(name, emoji, color) }
         )
     }
 
@@ -306,7 +310,11 @@ fun InventoryScreen(
             onSave = { updatedItem ->
                 viewModel.saveItem(updatedItem)
                 itemToEdit = null
-            }
+            },
+            onDeleteCategory = { viewModel.deleteCategory(it) },
+            onDeleteStoreType = { viewModel.deleteStoreType(it) },
+            onAddCategory = { name, emoji, color -> viewModel.addCategory(name, emoji, color) },
+            onAddStoreType = { name, emoji, color -> viewModel.addStoreType(name, emoji, color) }
         )
     }
 
