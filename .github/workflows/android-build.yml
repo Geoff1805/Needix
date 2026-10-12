@@ -1,4 +1,4 @@
-name: Build, Test and Release Needix v0.6.2
+name: Build, Test and Release Needix
 
 on:
   push:
@@ -80,26 +80,35 @@ jobs:
       env:
         KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
       run: |
-        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
+        if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
+          echo "Restauration du debug.keystore persistant depuis debug.keystore.base64..."
+          base64 -d debug.keystore.base64 > debug.keystore
+        fi
         if [ -n "$KEYSTORE_BASE64" ]; then
           echo "Clé de signature de production détectée dans les secrets GitHub."
           echo "$KEYSTORE_BASE64" | base64 -d > release-keystore.jks
           echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/release-keystore.jks" >> $GITHUB_ENV
         else
-          echo "Aucun secret de signature : fallback transparent sur debug.keystore local."
+          echo "Aucun secret de signature : fallback transparent sur debug.keystore persistant."
         fi
 
     - name: Générer le Wrapper Gradle
       run: gradle wrapper --gradle-version 9.3.1
 
-    - name: Compiler l'APK Android (Debug)
-      run: ./gradlew assembleDebug
+    - name: Compiler les APKs Android (Debug & Release)
+      run: ./gradlew assembleDebug assembleRelease
 
-    - name: Sauvegarder l'APK de vérification
+    - name: Sauvegarder l'APK de vérification (Debug)
       uses: actions/upload-artifact@v7
       with:
         name: Needix-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
+
+    - name: Sauvegarder l'APK Installable (Release)
+      uses: actions/upload-artifact@v7
+      with:
+        name: Needix-Release-APK
+        path: app/build/outputs/apk/release/*.apk
 
     - name: Compiler le Bundle Google Play (.aab) (Release uniquement)
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
@@ -129,12 +138,14 @@ jobs:
         name: Needix-Web-Archive
         path: needix-web-v0.6.2.tar.gz
 
-    - name: Attacher les artefacts finaux (.aab et archive Web) à la Release GitHub
+    - name: Attacher les artefacts finaux (.aab, .apk et archive Web) à la Release GitHub
       if: github.event_name == 'release' && github.event.action == 'published'
       uses: softprops/action-gh-release@v3
       with:
         files: |
           app/build/outputs/bundle/release/*.aab
+          app/build/outputs/apk/release/*.apk
+          app/build/outputs/apk/debug/*.apk
           needix-web-v0.6.2.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

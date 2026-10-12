@@ -36,8 +36,16 @@ android {
   if (versionPropsFile.exists()) {
     versionProps.load(versionPropsFile.inputStream())
   }
-  val appVersionCode = versionProps.getProperty("versionCode", "1").toIntOrNull() ?: 1
+  val envVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
+  val appVersionCode = envVersionCode ?: (versionProps.getProperty("versionCode", "1").toIntOrNull() ?: 1)
   val appVersionName = versionProps.getProperty("versionName", "1.0.0")
+
+  val keystoreFile = file("${rootDir}/debug.keystore")
+  val keystoreBase64File = file("${rootDir}/debug.keystore.base64")
+  if (!keystoreFile.exists() && keystoreBase64File.exists()) {
+    val decodedBytes = java.util.Base64.getDecoder().decode(keystoreBase64File.readText().trim())
+    keystoreFile.writeBytes(decodedBytes)
+  }
 
   val envProps = Properties()
   val envExampleFile = file("${rootDir}/.env.example")
@@ -62,18 +70,24 @@ android {
   }
 
   signingConfigs {
+    getByName("debug") {
+      storeFile = keystoreFile
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
     create("release") {
       val customPath = System.getenv("KEYSTORE_PATH")
-      val keystoreFile = if (!customPath.isNullOrEmpty() && file(customPath).exists()) {
+      val releaseKeystore = if (!customPath.isNullOrEmpty() && file(customPath).exists()) {
         file(customPath)
       } else if (file("${rootDir}/release-keystore.jks").exists()) {
         file("${rootDir}/release-keystore.jks")
       } else if (file("${rootDir}/my-upload-key.jks").exists()) {
         file("${rootDir}/my-upload-key.jks")
       } else {
-        file("${rootDir}/debug.keystore")
+        keystoreFile
       }
-      storeFile = keystoreFile
+      storeFile = releaseKeystore
       storePassword = System.getenv("STORE_PASSWORD") ?: "android"
       keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
       keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
@@ -81,6 +95,9 @@ android {
   }
 
   buildTypes {
+    getByName("debug") {
+      signingConfig = signingConfigs.getByName("debug")
+    }
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
