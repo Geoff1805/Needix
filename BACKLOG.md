@@ -129,6 +129,7 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 ## 2. Historique des Versions Livrées
 
 - **v0.6.3 (Patch build)** :
+  - Livraison de `[BACKLOG-BUILD-11]` : Hotfix du script Gradle `app/build.gradle.kts` (import `java.util.Base64` et décodage MIME sécurisé), transmission des variables secrètes de signature pour `assembleRelease`, intégration du Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle-wrapper.properties`), ajout du workflow automatisé `.github/workflows/update-gradle-wrapper.yml` et enrichissement des règles `/learn` dans `AGENTS.md`.
   - Livraison de `[BACKLOG-BUILD-10]` : Keystore persistant universel (`debug.keystore.base64`), configuration symétrique de signature Debug/Release dans `app/build.gradle.kts` et `.github/workflows/android-build.yml`, suppression de la régénération aléatoire de clés en CI, incrément du `versionCode=9` et publication conjointe d'APKs installables directement sans nécessiter de désinstaller la version précédente.
   - Livraison de `[BACKLOG-SCANNER-07]` : Bip sonore de confirmation au scan, verrouillage anti-rebond et affichage prioritaire immédiat de la proposition d'ajout au stock.
   - Livraison de `[BACKLOG-RECEIPT-08]` : Lecteur de tickets de caisse numériques (e-mail, texte, fichier) avec extraction intelligente des produits et mise à jour assistée du stock sur Android et Web.
