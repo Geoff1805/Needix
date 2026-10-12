@@ -47,6 +47,12 @@ interface ShoppingDao {
     @Query("UPDATE shopping_items SET storeId = :newStoreId WHERE id = :id")
     suspend fun updateStore(id: Long, newStoreId: String)
 
+    @Query("UPDATE shopping_items SET categoryId = :newCategoryId WHERE categoryId = :oldCategoryId")
+    suspend fun reassignShoppingCategory(oldCategoryId: String, newCategoryId: String)
+
+    @Query("UPDATE shopping_items SET storeId = :newStoreId WHERE storeId = :oldStoreId")
+    suspend fun reassignShoppingStore(oldStoreId: String, newStoreId: String)
+
     @Query("DELETE FROM shopping_items WHERE isPurchased = 1")
     suspend fun clearPurchasedItems()
 

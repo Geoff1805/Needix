@@ -55,6 +55,12 @@ interface InventoryDao {
     @Delete
     suspend fun deleteCategory(category: CategoryEntity)
 
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteCategoryById(id: String)
+
+    @Query("UPDATE inventory_items SET categoryId = :newCategoryId WHERE categoryId = :oldCategoryId")
+    suspend fun reassignInventoryCategory(oldCategoryId: String, newCategoryId: String)
+
     @Query("SELECT * FROM store_types ORDER BY orderIndex ASC")
     fun getAllStoreTypes(): Flow<List<StoreTypeEntity>>
 
@@ -66,6 +72,12 @@ interface InventoryDao {
 
     @Delete
     suspend fun deleteStoreType(storeType: StoreTypeEntity)
+
+    @Query("DELETE FROM store_types WHERE id = :id")
+    suspend fun deleteStoreTypeById(id: String)
+
+    @Query("UPDATE inventory_items SET preferredStoreId = :newStoreId WHERE preferredStoreId = :oldStoreId")
+    suspend fun reassignInventoryStore(oldStoreId: String, newStoreId: String)
 
     @Query("DELETE FROM inventory_items")
     suspend fun deleteAllInventoryItems()
