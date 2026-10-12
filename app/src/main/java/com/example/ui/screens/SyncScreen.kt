@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Language
@@ -50,6 +51,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -101,7 +105,9 @@ fun SyncScreen(
     onTestNotification: (() -> Unit)? = null,
     onNavigateToPaywall: () -> Unit = {},
     onAddCategory: (String, String, Long) -> Unit,
+    onDeleteCategory: (CategoryEntity) -> Unit = {},
     onAddStoreType: (String, String, Long) -> Unit,
+    onDeleteStoreType: (StoreTypeEntity) -> Unit = {},
     onImportCsv: (Uri, Boolean) -> Unit
 ) {
     val context = LocalContext.current
@@ -116,6 +122,9 @@ fun SyncScreen(
     var showAddStoreDialog by remember { mutableStateOf(false) }
     var showTutorialDialog by remember { mutableStateOf(false) }
     var showImportConfirmDialog by remember { mutableStateOf<Uri?>(null) }
+    var selectedManageTab by remember { mutableIntStateOf(0) }
+    var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    var storeToDelete by remember { mutableStateOf<StoreTypeEntity?>(null) }
 
     // SAF Document Creator for CSV export
     val createCsvDocumentLauncher = rememberLauncherForActivityResult(
@@ -549,7 +558,7 @@ fun SyncScreen(
 
         // Section 3: Gestion des Catégories & Magasins
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("manage_categories_and_stores_card"),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -591,32 +600,167 @@ fun SyncScreen(
                     }
                 }
 
+                // Onglets de bascule Catégories / Magasins
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    FilterChip(
+                        selected = selectedManageTab == 0,
+                        onClick = { selectedManageTab = 0 },
+                        label = { Text("Catégories (${categories.size})") },
+                        modifier = Modifier.weight(1f).testTag("tab_manage_categories"),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+
+                    FilterChip(
+                        selected = selectedManageTab == 1,
+                        onClick = { selectedManageTab = 1 },
+                        label = { Text("Magasins (${storeTypes.size})") },
+                        modifier = Modifier.weight(1f).testTag("tab_manage_stores"),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+
+                // Bouton d'ajout selon l'onglet actif
+                if (selectedManageTab == 0) {
                     OutlinedButton(
                         onClick = { showAddCategoryDialog = true },
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_add_category_dialog")
+                        modifier = Modifier.fillMaxWidth().testTag("btn_add_category_dialog")
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Catégorie")
+                        Spacer(Modifier.width(6.dp))
+                        Text("Ajouter une catégorie")
                     }
 
+                    // Liste des catégories
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        categories.forEach { cat ->
+                            val count = items.count { it.categoryId == cat.id }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().testTag("manage_cat_${cat.id}"),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        CategoryIconBadge(
+                                            emoji = cat.iconEmoji,
+                                            colorHex = cat.colorHex,
+                                            size = 36
+                                        )
+                                        Column {
+                                            Text(
+                                                text = cat.name,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Text(
+                                                text = "$count article${if (count > 1) "s" else ""}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { categoryToDelete = cat },
+                                        enabled = categories.size > 1,
+                                        modifier = Modifier.testTag("btn_delete_cat_${cat.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Supprimer la catégorie ${cat.name}",
+                                            tint = if (categories.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
                     OutlinedButton(
                         onClick = { showAddStoreDialog = true },
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_add_store_dialog")
+                        modifier = Modifier.fillMaxWidth().testTag("btn_add_store_dialog")
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Magasin")
+                        Spacer(Modifier.width(6.dp))
+                        Text("Ajouter un magasin")
+                    }
+
+                    // Liste des magasins
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        storeTypes.forEach { st ->
+                            val invCount = items.count { it.preferredStoreId == st.id }
+                            val shopCount = shoppingItems.count { it.storeId == st.id }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().testTag("manage_store_${st.id}"),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(st.colorHex).copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(text = st.iconEmoji, fontSize = 18.sp)
+                                        }
+                                        Column {
+                                            Text(
+                                                text = st.name,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Text(
+                                                text = "$invCount en inventaire • $shopCount en courses",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { storeToDelete = st },
+                                        enabled = storeTypes.size > 1,
+                                        modifier = Modifier.testTag("btn_delete_store_${st.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Supprimer le magasin ${st.name}",
+                                            tint = if (storeTypes.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -781,6 +925,96 @@ fun SyncScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showAddStoreDialog = false }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    // Confirmation de suppression de Catégorie
+    if (categoryToDelete != null) {
+        val cat = categoryToDelete!!
+        val count = items.count { it.categoryId == cat.id }
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text("Supprimer « ${cat.name} » ?")
+            },
+            text = {
+                Text(
+                    if (count > 0)
+                        "Cette catégorie contient $count article(s). Ils seront automatiquement réassignés à la catégorie Divers (« autre »)."
+                    else
+                        "Êtes-vous sûr de vouloir supprimer définitivement cette catégorie ?"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteCategory(cat)
+                        categoryToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_cat_btn")
+                ) {
+                    Text("Supprimer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    // Confirmation de suppression de Magasin
+    if (storeToDelete != null) {
+        val st = storeToDelete!!
+        val invCount = items.count { it.preferredStoreId == st.id }
+        val shopCount = shoppingItems.count { it.storeId == st.id }
+        val total = invCount + shopCount
+        AlertDialog(
+            onDismissRequest = { storeToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text("Supprimer le magasin « ${st.name} » ?")
+            },
+            text = {
+                Text(
+                    if (total > 0)
+                        "Ce magasin est associé à $invCount article(s) d'inventaire et $shopCount article(s) de courses. Ils seront automatiquement réassignés au Supermarché (« supermarket »)."
+                    else
+                        "Êtes-vous sûr de vouloir supprimer définitivement ce magasin ?"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteStoreType(st)
+                        storeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_store_btn")
+                ) {
+                    Text("Supprimer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { storeToDelete = null }) {
                     Text("Annuler")
                 }
             }
