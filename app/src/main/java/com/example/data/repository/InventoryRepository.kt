@@ -103,8 +103,24 @@ class InventoryRepository(
         inventoryDao.insertCategory(category)
     }
 
+    suspend fun deleteCategory(category: CategoryEntity, fallbackCategoryId: String? = null) {
+        if (fallbackCategoryId != null) {
+            inventoryDao.reassignInventoryCategory(category.id, fallbackCategoryId)
+            shoppingDao.reassignShoppingCategory(category.id, fallbackCategoryId)
+        }
+        inventoryDao.deleteCategory(category)
+    }
+
     suspend fun insertStoreType(storeType: StoreTypeEntity) {
         inventoryDao.insertStoreType(storeType)
+    }
+
+    suspend fun deleteStoreType(storeType: StoreTypeEntity, fallbackStoreId: String? = null) {
+        if (fallbackStoreId != null) {
+            inventoryDao.reassignInventoryStore(storeType.id, fallbackStoreId)
+            shoppingDao.reassignShoppingStore(storeType.id, fallbackStoreId)
+        }
+        inventoryDao.deleteStoreType(storeType)
     }
 
     suspend fun importItems(items: List<InventoryItemEntity>, replaceAll: Boolean) {
