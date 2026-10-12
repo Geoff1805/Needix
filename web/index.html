@@ -203,7 +203,7 @@
             <button id="btn-open-file" class="btn-action" title="Ouvrir un fichier .json ou .csv depuis votre ordinateur">
               <span>📂</span> <span data-i18n="btn_open_file">Ouvrir mon fichier JSON</span>
             </button>
-            <button id="btn-save-file" class="btn-action btn-save-main" title="Enregistrer directement dans le fichier ouvert">
+            <button id="btn-save-file" class="btn-save-main btn-action" title="Enregistrer directement dans le fichier ouvert">
               <span>💾</span> <span data-i18n="btn_save_file">Enregistrer les modifications</span>
             </button>
             <button id="btn-download-json" class="btn-action" title="Télécharger une copie JSON">
@@ -214,6 +214,9 @@
             </button>
             <button id="btn-receipt-scan" class="btn-action" title="Importer ou coller un ticket de caisse numérique">
               <span>🧾</span> <span data-i18n="btn_receipt_scan">Ticket numérique</span>
+            </button>
+            <button id="btn-manage-categories" class="btn-action" title="Gérer ou supprimer les catégories et magasins">
+              <span>🏷️</span> <span data-i18n="btn_manage_categories">Catégories & Magasins</span>
             </button>
             <button id="btn-load-sample" class="btn-action" title="Charger un jeu de données d'exemple">
               <span>✨</span> <span data-i18n="btn_load_sample">Charger un exemple</span>
@@ -419,7 +422,7 @@
 
         <div class="modal-footer">
           <button type="button" id="modal-cancel-btn" class="btn-action" data-i18n="btn_cancel">Annuler</button>
-          <button type="submit" class="btn-action btn-save-main" data-i18n="btn_save">Enregistrer l'article</button>
+          <button type="submit" class="btn-save-main btn-action" data-i18n="btn_save">Enregistrer l'article</button>
         </div>
       </form>
     </div>
@@ -459,7 +462,48 @@
       </div>
       <div class="modal-footer">
         <button type="button" id="receipt-cancel-btn" class="btn-action">Fermer</button>
-        <button type="button" id="receipt-apply-btn" class="btn-action btn-save-main" style="display: none;">✓ Mettre à jour l'inventaire</button>
+        <button type="button" id="receipt-apply-btn" class="btn-save-main btn-action" style="display: none;">✓ Mettre à jour l'inventaire</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Manage Categories & Stores -->
+  <div id="categories-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-window" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 id="categories-modal-title" data-i18n="modal_manage_title">Gestion des Catégories & Magasins</h3>
+        <button id="categories-modal-close" class="modal-close" type="button">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+          <button id="tab-cat-view" class="btn-action" type="button" style="flex: 1; font-weight: bold; background: rgba(59,130,246,0.2);">🏷️ Catégories</button>
+          <button id="tab-store-view" class="btn-action" type="button" style="flex: 1;">🏪 Magasins</button>
+        </div>
+
+        <!-- Section Catégories -->
+        <div id="cat-manage-section">
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <input type="text" id="new-cat-name" class="form-control" placeholder="Nom de la nouvelle catégorie..." style="flex: 2;">
+            <input type="text" id="new-cat-emoji" class="form-control" placeholder="Emoji" value="📦" style="flex: 1; max-width: 80px; text-align: center;">
+            <button id="btn-add-cat-web" class="btn-save-main btn-action" type="button" style="white-space: nowrap;">+ Ajouter</button>
+          </div>
+          <div id="categories-list-container" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          </div>
+        </div>
+
+        <!-- Section Magasins -->
+        <div id="store-manage-section" style="display: none;">
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <input type="text" id="new-store-name" class="form-control" placeholder="Nom du nouveau magasin..." style="flex: 2;">
+            <input type="text" id="new-store-emoji" class="form-control" placeholder="Emoji" value="🛒" style="flex: 1; max-width: 80px; text-align: center;">
+            <button id="btn-add-store-web" class="btn-save-main btn-action" type="button" style="white-space: nowrap;">+ Ajouter</button>
+          </div>
+          <div id="stores-list-container" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="categories-modal-cancel" class="btn-action" type="button">Fermer</button>
       </div>
     </div>
   </div>
