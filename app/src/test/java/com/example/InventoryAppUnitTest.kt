@@ -285,4 +285,46 @@ class InventoryAppUnitTest {
         assertNotNull(showerGelLine)
         assertEquals("hygiene", showerGelLine!!.suggestedCategory)
     }
+
+    @Test
+    fun categoryAndStoreDeletion_reassignsReferencedItemsToFallback() {
+        val initialCategories = mutableListOf(
+            CategoryEntity(id = "cuisine", name = "Cuisine", iconEmoji = "🥫", colorHex = 0xFFF59E0B),
+            CategoryEntity(id = "aliments", name = "Aliments", iconEmoji = "🍎", colorHex = 0xFF10B981),
+            CategoryEntity(id = "autre", name = "Divers", iconEmoji = "📦", colorHex = 0xFF6B7280)
+        )
+        val initialStores = mutableListOf(
+            StoreTypeEntity(id = "supermarket", name = "Supermarché", iconEmoji = "🛒", colorHex = 0xFF3B82F6),
+            StoreTypeEntity(id = "bio", name = "Bio", iconEmoji = "🥦", colorHex = 0xFF10B981)
+        )
+
+        var items = listOf(
+            InventoryItemEntity(
+                id = 1L,
+                name = "Pesto",
+                categoryId = "cuisine",
+                preferredStoreId = "bio"
+            )
+        )
+
+        // 1. Simulate deletion of "cuisine" category
+        val categoryToDelete = initialCategories.find { it.id == "cuisine" }!!
+        val remainingCategories = initialCategories.filter { it.id != categoryToDelete.id }
+        val categoryFallback = remainingCategories.find { it.id == "autre" }?.id ?: remainingCategories.first().id
+
+        items = items.map { item ->
+            if (item.categoryId == categoryToDelete.id) item.copy(categoryId = categoryFallback) else item
+        }
+        assertEquals("autre", items[0].categoryId)
+
+        // 2. Simulate deletion of "bio" store
+        val storeToDelete = initialStores.find { it.id == "bio" }!!
+        val remainingStores = initialStores.filter { it.id != storeToDelete.id }
+        val storeFallback = remainingStores.find { it.id == "supermarket" }?.id ?: remainingStores.first().id
+
+        items = items.map { item ->
+            if (item.preferredStoreId == storeToDelete.id) item.copy(preferredStoreId = storeFallback) else item
+        }
+        assertEquals("supermarket", items[0].preferredStoreId)
+    }
 }

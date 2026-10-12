@@ -242,6 +242,24 @@ class InventoryViewModel(
                     orderIndex = uiState.value.categories.size
                 )
             )
+            _uiEvents.emit("Catégorie « ${name.trim()} » ajoutée")
+        }
+    }
+
+    fun deleteCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            val currentList = uiState.value.categories
+            if (currentList.size <= 1) {
+                _uiEvents.emit("Impossible de supprimer la seule catégorie restante")
+                return@launch
+            }
+            val remaining = currentList.filter { it.id != category.id }
+            val fallback = remaining.find { it.id == "autre" }?.id ?: remaining.first().id
+            repository.deleteCategory(category, fallback)
+            if (_filterState.value.selectedCategoryId == category.id) {
+                _filterState.value = _filterState.value.copy(selectedCategoryId = null)
+            }
+            _uiEvents.emit("Catégorie « ${category.name} » supprimée")
         }
     }
 
@@ -257,6 +275,21 @@ class InventoryViewModel(
                     orderIndex = uiState.value.storeTypes.size
                 )
             )
+            _uiEvents.emit("Magasin « ${name.trim()} » ajouté")
+        }
+    }
+
+    fun deleteStoreType(storeType: StoreTypeEntity) {
+        viewModelScope.launch {
+            val currentList = uiState.value.storeTypes
+            if (currentList.size <= 1) {
+                _uiEvents.emit("Impossible de supprimer le seul magasin restant")
+                return@launch
+            }
+            val remaining = currentList.filter { it.id != storeType.id }
+            val fallback = remaining.find { it.id == "supermarket" }?.id ?: remaining.first().id
+            repository.deleteStoreType(storeType, fallback)
+            _uiEvents.emit("Magasin « ${storeType.name} » supprimé")
         }
     }
 
