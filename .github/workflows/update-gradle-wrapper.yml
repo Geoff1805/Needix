@@ -1,0 +1,34 @@
+name: Update Gradle Wrapper (GA Stable)
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Chaque lundi à 3h UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-wrapper:
+    name: Auto-update Gradle Wrapper (GA Stable)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v7
+
+      - name: Configurer Java 21 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Générer le Gradle wrapper actuel
+        run: gradle wrapper --gradle-version 9.3.1
+
+      - name: Mettre à jour vers la version stable GA
+        uses: gradle/actions/update-gradle-wrapper@v6
+        with:
+          target-version: 'stable'
+          generate-checksums: true

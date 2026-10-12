@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -43,7 +44,7 @@ android {
   val keystoreFile = file("${rootDir}/debug.keystore")
   val keystoreBase64File = file("${rootDir}/debug.keystore.base64")
   if (!keystoreFile.exists() && keystoreBase64File.exists()) {
-    val decodedBytes = java.util.Base64.getDecoder().decode(keystoreBase64File.readText().trim())
+    val decodedBytes = Base64.getMimeDecoder().decode(keystoreBase64File.readText().trim())
     keystoreFile.writeBytes(decodedBytes)
   }
 
@@ -95,9 +96,6 @@ android {
   }
 
   buildTypes {
-    getByName("debug") {
-      signingConfig = signingConfigs.getByName("debug")
-    }
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
