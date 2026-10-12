@@ -50,84 +50,122 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ---
 
-### [BACKLOG-PERF-04] Optimisation Green IT & Écoconception Logicielle
-- **Statut** : `Terminé / Livré`
-- **Origine** : Directive système — Architecture locale souveraine & Green IT.
-- **Spécifications** :
-  1. Mise en place du cache Gradle natif GitHub Actions (`actions/setup-java@v6` avec `cache: gradle`) divisant par deux le temps CPU runner.
-  2. Filtrage granulaire des déclencheurs CI (`paths-ignore` sur markdown, docs, workflows et web).
-  3. Réduction de l'empreinte mémoire SQLite avec pagination et indexation sur les dates de péremption (`InventoryDao.kt`).
-  4. Minimisation des recalculs Compose via `derivedStateOf` et `remember`.
+### [BACKLOG-BUG-04] Correction du problème des doubles icônes (Lanceur Android / Web)
+- **Statut** : `Vérifié / Conforme`
+- **Origine** : Demande utilisateur avec capture d'écran — signalement de double icône.
+- **Spécifications & Diagnostic technique** :
+  1. **Côté Android** :
+     - Contrôle d'unicité de l'intent filter `android.intent.category.LAUNCHER` dans `AndroidManifest.xml` (garantir qu'une seule Activity possède l'entrée du lanceur).
+     - Vérification de l'absence d'`<activity-alias>` résiduel issu d'anciennes variantes.
+     - Harmonisation des icônes adaptatives vectorielles (`res/mipmap-anydpi-v26/ic_launcher.xml` et `ic_launcher_round.xml`) avec les drawables matriciels WebP pour prévenir tout dédoublement sur les launchers d'appareils physiques et émulateurs.
+  2. **Côté Web / Landing Page** :
+     - Vérifier la barre de navigation et le favicon pour éviter toute redondance d'affichage d'icône.
 
 ---
 
-### [BACKLOG-WEB-05] Modernisation & Réparation Intégrale de la Web App
+### [BACKLOG-WEB-05] Correction du chemin de base (Base Path) Web & Sous-domaine Dédié (needix.app)
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Alignement fonctionnalités Web et Android.
+- **Origine** : Demande utilisateur — Hébergement sur le sous-domaine dédié `https://needix.app`, suppression du sous-dossier `/Needix/`.
 - **Spécifications** :
-  1. Rétablissement du nom de domaine personnalisé `https://needix.app/` via `wrangler.toml` et suppression de la redirection 301 défectueuse vers `/Needix/`.
-  2. Implémentation du lecteur de code-barres HTML5 (`html5-qrcode`) directement sur la Web App.
-  3. Sauvegarde locale persistante sans serveur (`localStorage` + export/import JSON/CSV compatible avec Android).
-  4. Support multilingue temps réel (Français, Anglais, Néerlandais).
+  1. **Fichiers HTML (`web/index.html`)** :
+     - Ajouter / configurer la balise `<base href="/">` dans la section `<head>` pour faire pointer la racine vers `/` au lieu d'un sous-dossier.
+     - S'assurer que tous les assets (CSS, JS, images, polices, favicons) sont appelés depuis la racine (`/css/style.css`, `/js/app.js`, `/js/i18n.js`, etc.) sans préfixe `/Needix/`.
+  2. **Routing et Code Kotlin (Android & Multiplatform)** :
+     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix.pages.dev/Needix/` vers `https://needix.app/` (dans `SyncScreen.kt`).
+     - Nettoyer les mentions de `(/Needix)` dans les libellés (`strings.xml` fr, en, nl : `web_landing_button`, `web_landing_desc`).
+  3. **Configuration Cloudflare Pages & Redirections** :
+     - Supprimer la redirection `_redirects` et le sous-dossier dupliqué `web/Needix/`.
+     - Déployer le contenu web directement à la racine pour servir `index.html` à la racine de `https://needix.app`.
 
 ---
 
-### [BACKLOG-SCANNER-06] Lecteur Code-Barres Multi-API & Base Locale Hors-Ligne
+### [BACKLOG-SCANNER-06] Reconnaissance Universelle Multi-API & Base Hors-Ligne (`Open-Product-Database`)
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Couverture maximale des produits alimentaires, cosmétiques, livres et articles généraux.
+- **Origine** : Demande utilisateur — Maximiser le taux de reconnaissance du lecteur de codes-barres (alimentaire, ménager, cosmétique, livres/culture et mode hors-ligne).
 - **Spécifications** :
-  1. **Cascade de résolutions Multi-API** :
-     - Open Food Facts API v2 (alimentaire).
-     - Open Beauty Facts API v2 (cosmétiques et hygiène).
-     - Open Products Facts API v2 (articles généraux, bazar, entretien).
-     - Inventaire.io API (ISBN livres).
-     - Chomp Food API v2 (alimentaire international avec clé API).
-  2. **Base de données embarquée hors-ligne (`open_product_database.json`)** :
-     - 400+ références populaires préchargées dans les assets Android et la Web App pour un scan instantané sans connexion réseau.
-  3. **Tolérance aux pannes réseau & mode hors-ligne** :
-     - Repli silencieux et immédiat vers la saisie manuelle si le code-barres n'est pas répertorié.
+  1. **Base de données locale embarquée (`Open-Product-Database`)** :
+     - Intégration d'une base de données JSON locale embarquée (`app/src/main/assets/open_product_database.json` et `web/data/open-product-database.json`) + cache local en mémoire pour reconnaître instantanément les produits courants **sans aucune connexion réseau** (0 ms de latence, Green IT).
+  2. **API Open Food Facts v2 (Alimentation mondiale)** :
+     - Endpoint : `https://world.openfoodfacts.net/api/v2/product/{code_barre}` (avec repli sur `world.openfoodfacts.org/api/v2/product/{code_barre}`).
+     - Récupération du nom (`product_name_fr` / `product_name`), de la marque (`brands`), de la quantité/unité (`quantity`), de l'image, du **Nutri-Score** (`nutriscore_grade`), des **ingrédients** et des **allergènes**.
+  3. **API Open Products Facts v2 (Maison, Ménager, Bricolage, Électronique)** :
+     - Endpoint : `https://world.openproductsfacts.org/api/v2/product/{code_barre}`.
+     - Architecture unifiée à 98 % avec Open Food Facts ; catégorisation automatique vers `menager`, `bricolage` ou `autre`.
+  4. **API Open Beauty Facts v2 (Cosmétiques, Hygiène, Parfums, Soins)** :
+     - Endpoint : `https://world.openbeautyfacts.org/api/v2/product/{code_barre}`.
+     - Même structure JSON ouverte ; catégorisation automatique vers `hygiene` ou `pharmacie`.
+  5. **API Inventaire.io (Livres & Culture par code ISBN)** :
+     - Endpoint : `https://api.inventaire.io/api/entities/by-uris?uris=isbn:{code_barre}`.
+     - Détection prioritaire des préfixes ISBN-13 (`978`, `979`) et ISBN-10 pour extraire le titre de l'ouvrage, l'auteur/éditeur, la couverture et les métadonnées culturelles.
+  6. **Chomp Food API v2 (Nutrition & Aliments emballés — Dernier recours)** :
+     - Endpoint : `https://chompthis.com/api/v2/food/branded/barcode.php?code={code_barre}&api_key={CHOMP_API_KEY}`.
+     - Appelée uniquement en dernier recours si aucune base ouverte gratuite ni la base locale n'a trouvé le produit (afin de préserver le forfait gratuit de 1 000 requêtes/mois), lorsque `CHOMP_API_KEY` est renseignée dans `.env`.
+  7. **Interface Scanner & Enrichissement UI (`ScannerScreen.kt`, `ScannerViewModel.kt` & `web/js/app.js`)** :
+     - Affichage d'un badge indiquant la source ayant identifié le produit (`Open Food Facts`, `Open Beauty Facts`, `Open Products Facts`, `Inventaire.io`, `Chomp API`, `Open-Product-Database`).
+     - Pré-remplissage intelligent de l'unité/contenance, de l'emplacement, des notes (Nutri-Score, allergènes, auteur/éditeur) et ajout de codes-barres de démonstration multi-catégories.
 
 ---
 
-### [BACKLOG-SCANNER-07] Bip Sonore, Anti-Rebond & Proposition d'Ajout Prioritaire au Scan
+### [BACKLOG-SCANNER-07] Bip Sonore, Verrouillage Anti-Rebond & Proposition Immédiate d'Ajout au Scan
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Feedback auditif immédiat et confirmation fluide lors du scan de code-barres.
+- **Origine** : Demande utilisateur — Émettre un bip lors de la lecture du code-barres et proposer immédiatement l'ajout du produit.
 - **Spécifications** :
-  1. **Feedback auditif (Bip scanner)** :
-     - Émission d'un son net et instantané à la détection réussie d'un code-barres (ToneGenerator système sur Android, Web Audio API Oscillator sur le Web).
-  2. **Verrouillage anti-rebond (Debounce / Cooldown)** :
-     - Délai de 1 200 ms empêchant les scans multiples accidentels du même code-barres sans bloquer les scans consécutifs de produits distincts.
-  3. **Proposition d'ajout prioritaire** :
-     - Affichage d'une boîte de dialogue modale élégante permettant de confirmer le produit, la quantité et la date de péremption avant ajout définitif.
+  1. **Bip Sonore & Signal Haptique** :
+     - Émission d'un bip sonore de confirmation acoustique (`ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100).startTone(ToneGenerator.TONE_PROP_BEEP, 160)`) et vibration haptique sur Android (`HapticFeedbackType.LongPress`).
+     - Sur le Web : bip sonore via l'API standard Web Audio (`AudioContext` à `880 Hz`).
+  2. **Verrouillage Anti-Rebond de Caméra** :
+     - Dès qu'un code-barres est scanné (`scannedBarcode != null`), le processeur caméra ignore les frames suivantes pour ne pas relancer la recherche en boucle tant que l'utilisateur consulte la fiche.
+  3. **Proposition Immédiate d'Ajout (Haute Priorité UI)** :
+     - Affichage de la proposition d'ajout ou d'incrément `+1` tout en haut de l'écran avec scroll automatique immédiat.
 
 ---
 
-### [BACKLOG-RECEIPT-08] Lecteur de Tickets de Caisse Numériques & Mise à Jour du Stock
+### [BACKLOG-RECEIPT-08] Lecteur de Tickets de Caisse Numériques & Mise à Jour Assistée du Stock (Android & Web)
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Intégration rapide des achats depuis des e-tickets (e-mails d'enseignes, fichiers PDF/TXT).
+- **Origine** : Demande utilisateur — Lecture des tickets numériques de magasin et mise à jour de l'inventaire.
 - **Spécifications** :
-  1. **Moteur d'analyse textuelle intelligent** :
-     - Extraction des lignes d'articles, quantités, prix et détection automatique des formats standards (Carrefour, Auchan, Leclerc, Colruyt, Delhaize, etc.).
-  2. **Interface de validation assistée** :
-     - Liste interactive des produits détectés avec cases à cocher pour sélection et ajustement des quantités avant validation vers l'inventaire.
-  3. **Disponibilité multiplateforme** :
-     - Déployé simultanément sur l'application Android (`ReceiptParser.kt`, `ReceiptParserDialog.kt`) et la Web App (`receiptParser.js`).
+  1. **Analyseur Intelligent de Tickets (`ReceiptParser.kt` & `parseWebReceiptText`)** :
+     - Filtrage automatique des lignes d'entête magasin, totaux, montants CB, TVA, SIRET, remises et séparateurs.
+     - Extraction des noms de produits et détection des multiplicateurs (`2 x 1,50 €`, `3 X`, etc.).
+     - Rapprochement automatique (matching flou par tokens) avec les articles existants de l'inventaire pour distinguer les **réapprovisionnements (`+X en stock`)** des **nouveaux articles**.
+  2. **Interface de Validation par Lot** :
+     - Import de fichier (`.txt`, `.html`, `.eml`, `.csv`) ou copier-coller du ticket numérique avec prévisualisation cochable et ajustement des quantités avant validation en un clic.
 
 ---
 
-### [BACKLOG-WEB-09] Transparence Hébergement Cloudflare Pages & Gratuité Web App
+### [BACKLOG-WEB-09] Clarification Modèle Économique (Web Gratuit sans Abonnement) & Hébergement Cloudflare
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Clarification tarifaire et politique de confidentialité des données.
+- **Origine** : Demande utilisateur — Préciser que seule la version Web est sans abonnement, et clarifier l'hébergement Cloudflare avec données 100% locales.
 - **Spécifications** :
   1. **Modèle économique transparent** :
      - Indiquer clairement dans le Hero, la section Téléchargement, la FAQ et le Footer que **seule la version Web est gratuite sans abonnement** (les applications mobiles stores incluent un essai gratuit de 14 jours puis un abonnement).
   2. **Transparence d'Hébergement & Confidentialité 100% Locale** :
      - Expliciter que le site statique est hébergé sur **Cloudflare Pages** pour une distribution rapide, mais qu'**aucune donnée d'inventaire ne transite ni n'est stockée sur Cloudflare ou un serveur distant** (stockage 100% local sur l'appareil via HTML5 File System Access / Room SQLite).
 
+### [BACKLOG-CATEGORIES-13] Suppression et Gestion Complète des Magasins et Catégories (Android & Web)
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Impossibilité de supprimer les magasins et les catégories.
+- **Spécifications** :
+  1. **Couche Persistance & DAO (`InventoryDao.kt`, `ShoppingDao.kt`, `InventoryRepository.kt`)** :
+     - Ajout des méthodes de suppression par entité et par ID (`deleteCategory`, `deleteCategoryById`, `deleteStoreType`, `deleteStoreTypeById`).
+     - Requêtes de réassignation automatique sécurisée des articles existants (`reassignInventoryCategory`, `reassignShoppingCategory`, `reassignInventoryStore`, `reassignShoppingStore`) vers une catégorie de repli (ex. « Divers » / `autre`) ou un magasin de repli (ex. « Supermarché » / `supermarket`) pour éviter tout article orphelin.
+  2. **ViewModel Android (`InventoryViewModel.kt`)** :
+     - Ajout de `deleteCategory(category)` et `deleteStoreType(storeType)` avec contrôle d'intégrité (interdiction de supprimer la toute dernière catégorie ou le tout dernier magasin) et émission d'événements UI informatifs.
+  3. **Interface Android (`SyncScreen.kt` & `ItemEditDialog.kt`)** :
+     - Écran de sauvegarde / synchronisation : Section « Catégories & Magasins » enrichie d'onglets de bascule (`Catégories`, `Magasins`), liste visuelle complète avec compteurs d'articles associés, boutons de suppression avec dialogue de confirmation explicite, et boutons d'ajout.
+     - Sélecteurs d'édition d'article (`CategoryPickerDialog`, `StorePickerDialog`) : possibilité de supprimer directement une catégorie/magasin inutile via un bouton corbeille dédié avec confirmation, et bouton d'ajout rapide.
+  4. **Interface & Moteur Web (`web/index.html`, `web/js/app.js`, `web/js/i18n.js`)** :
+     - Ajout du bouton « Catégories & Magasins » dans la barre d'outils et de la modale dédiée `#categories-modal`.
+     - Gestion complète des suppressions avec réassignation automatique des articles et dialogues de confirmation en français, anglais et néerlandais.
+     - Synchronisation dynamique du menu déroulant de sélection de catégorie dans la fiche produit.
+
 ---
 
 ## 2. Historique des Versions Livrées
 
+- **v0.6.4** :
+  - Livraison de `[BACKLOG-CATEGORIES-13]` : Gestion et suppression complète des catégories et magasins sur Android et Web avec réassignation automatique des articles associés (repli vers `autre` / `supermarket`), dialogues de confirmation, et boutons de suppression dédiés dans `SyncScreen`, `ItemEditDialog` et l'interface Web.
+  - Bump de `versionCode=10` et `versionName=0.6.4` dans `version.properties`.
 - **v0.6.3 (Patch build)** :
   - Livraison de `[BACKLOG-BUILD-11]` : Hotfix du script Gradle `app/build.gradle.kts` (import `java.util.Base64` et décodage MIME sécurisé), transmission des variables secrètes de signature pour `assembleRelease`, intégration du Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle-wrapper.properties`), ajout du workflow automatisé `.github/workflows/update-gradle-wrapper.yml` et enrichissement des règles `/learn` dans `AGENTS.md`.
   - Livraison de `[BACKLOG-BUILD-10]` : Keystore persistant universel (`debug.keystore.base64`), configuration symétrique de signature Debug/Release dans `app/build.gradle.kts` et `.github/workflows/android-build.yml`, suppression de la régénération aléatoire de clés en CI, incrément du `versionCode=9` et publication conjointe d'APKs installables directement sans nécessiter de désinstaller la version précédente.
