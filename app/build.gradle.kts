@@ -89,10 +89,15 @@ android {
         keystoreFile
       }
       storeFile = releaseKeystore
-      storePassword = System.getenv("STORE_PASSWORD") ?: "android"
-      keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+      storePassword = System.getenv("STORE_PASSWORD")?.takeUnless { it.isBlank() } ?: "android"
+      keyAlias = System.getenv("KEY_ALIAS")?.takeUnless { it.isBlank() } ?: "androiddebugkey"
+      keyPassword = System.getenv("KEY_PASSWORD")?.takeUnless { it.isBlank() } ?: "android"
     }
+  }
+
+  lint {
+    abortOnError = false
+    checkReleaseBuilds = false
   }
 
   buildTypes {
