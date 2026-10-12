@@ -306,8 +306,14 @@ class MainActivity : ComponentActivity() {
                                         onAddCategory = { name, emoji, color ->
                                             inventoryViewModel.addCategory(name, emoji, color)
                                         },
+                                        onDeleteCategory = { category ->
+                                            inventoryViewModel.deleteCategory(category)
+                                        },
                                         onAddStoreType = { name, emoji, color ->
                                             inventoryViewModel.addStoreType(name, emoji, color)
+                                        },
+                                        onDeleteStoreType = { storeType ->
+                                            inventoryViewModel.deleteStoreType(storeType)
                                         },
                                         onImportCsv = { uri, replaceAll ->
                                             inventoryViewModel.importCsv(this@MainActivity, uri, replaceAll) { count ->
