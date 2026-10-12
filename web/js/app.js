@@ -240,6 +240,22 @@ function initEventListeners() {
   if (btnReceiptSample) btnReceiptSample.addEventListener("click", handleReceiptSample);
   if (btnParseReceipt) btnParseReceipt.addEventListener("click", handleAnalyzeReceipt);
   if (btnReceiptApply) btnReceiptApply.addEventListener("click", handleApplyReceipt);
+
+  const btnManageCat = document.getElementById("btn-manage-categories");
+  const btnCatClose = document.getElementById("categories-modal-close");
+  const btnCatCancel = document.getElementById("categories-modal-cancel");
+  const tabCatView = document.getElementById("tab-cat-view");
+  const tabStoreView = document.getElementById("tab-store-view");
+  const btnAddCatWeb = document.getElementById("btn-add-cat-web");
+  const btnAddStoreWeb = document.getElementById("btn-add-store-web");
+
+  if (btnManageCat) btnManageCat.addEventListener("click", openCategoriesModal);
+  if (btnCatClose) btnCatClose.addEventListener("click", closeCategoriesModal);
+  if (btnCatCancel) btnCatCancel.addEventListener("click", closeCategoriesModal);
+  if (tabCatView) tabCatView.addEventListener("click", () => switchManageTab("categories"));
+  if (tabStoreView) tabStoreView.addEventListener("click", () => switchManageTab("stores"));
+  if (btnAddCatWeb) btnAddCatWeb.addEventListener("click", handleAddCategoryWeb);
+  if (btnAddStoreWeb) btnAddStoreWeb.addEventListener("click", handleAddStoreWeb);
 }
 
 async function loadInitialState() {
@@ -908,12 +924,31 @@ function deleteItem(id) {
   showToast("Article supprimé de l'inventaire", "info");
 }
 
+function populateCategorySelect() {
+  const sel = document.getElementById("item-category");
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = "";
+  const cats = inventoryData.categories || DEFAULT_CATEGORIES;
+  cats.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.iconEmoji || "📦"} ${c.name}`;
+    sel.appendChild(opt);
+  });
+  if (currentVal && cats.some(c => c.id === currentVal)) {
+    sel.value = currentVal;
+  } else if (cats.length > 0) {
+    sel.value = cats[0].id;
+  }
+}
+
 function openAddModal() {
   editingItemId = null;
   document.getElementById("modal-title").textContent = t("add_modal_title");
   document.getElementById("modal-item-id").value = "";
   document.getElementById("item-name").value = "";
-  document.getElementById("item-category").value = "aliments";
+  populateCategorySelect();
   document.getElementById("item-location").value = "Placard";
   document.getElementById("item-quantity").value = "1";
   document.getElementById("item-min-quantity").value = "1";
@@ -934,6 +969,7 @@ function openEditModal(id) {
   document.getElementById("modal-title").textContent = t("edit_modal_title");
   document.getElementById("modal-item-id").value = it.id;
   document.getElementById("item-name").value = it.name || "";
+  populateCategorySelect();
   document.getElementById("item-category").value = resolveCategoryId(it.categoryId || it.category);
   document.getElementById("item-location").value = it.location || "Placard";
   document.getElementById("item-quantity").value = it.quantity ?? 1;
@@ -1497,4 +1533,224 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// -------------------------------------------------------------
+// Category & Store Management (Web)
+// -------------------------------------------------------------
+
+let currentManageTab = "categories";
+
+function openCategoriesModal() {
+  currentManageTab = "categories";
+  switchManageTab("categories");
+  renderCategoriesModal();
+  document.getElementById("categories-modal").style.display = "flex";
+}
+
+function closeCategoriesModal() {
+  document.getElementById("categories-modal").style.display = "none";
+}
+
+function switchManageTab(tab) {
+  currentManageTab = tab;
+  const catSec = document.getElementById("cat-manage-section");
+  const storeSec = document.getElementById("store-manage-section");
+  const tabCat = document.getElementById("tab-cat-view");
+  const tabStore = document.getElementById("tab-store-view");
+  if (tab === "categories") {
+    if (catSec) catSec.style.display = "block";
+    if (storeSec) storeSec.style.display = "none";
+    if (tabCat) tabCat.style.background = "rgba(59,130,246,0.2)";
+    if (tabStore) tabStore.style.background = "transparent";
+  } else {
+    if (catSec) catSec.style.display = "none";
+    if (storeSec) storeSec.style.display = "block";
+    if (tabCat) tabCat.style.background = "transparent";
+    if (tabStore) tabStore.style.background = "rgba(59,130,246,0.2)";
+  }
+}
+
+function renderCategoriesModal() {
+  const catContainer = document.getElementById("categories-list-container");
+  const storeContainer = document.getElementById("stores-list-container");
+
+  if (catContainer) {
+    catContainer.innerHTML = "";
+    const cats = inventoryData.categories || DEFAULT_CATEGORIES;
+    cats.forEach(c => {
+      const count = (inventoryData.items || []).filter(it => resolveCategoryId(it.categoryId || it.category) === c.id).length;
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+      row.style.justifyContent = "space-between";
+      row.style.padding = "10px 14px";
+      row.style.background = "rgba(255,255,255,0.05)";
+      row.style.borderRadius = "10px";
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">${c.iconEmoji || "📦"}</span>
+          <div>
+            <div style="font-weight: bold; color: #f8fafc;">${escapeHtml(c.name)}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">${count} article(s)</div>
+          </div>
+        </div>
+        <button class="icon-btn delete-btn" title="Supprimer la catégorie" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 6px;" onclick="deleteCategoryWeb('${c.id}')" ${cats.length <= 1 ? "disabled" : ""}>🗑️</button>
+      `;
+      catContainer.appendChild(row);
+    });
+  }
+
+  if (storeContainer) {
+    storeContainer.innerHTML = "";
+    const stores = inventoryData.storeTypes || DEFAULT_STORE_TYPES;
+    stores.forEach(s => {
+      const invCount = (inventoryData.items || []).filter(it => resolveStoreId(it.store || it.preferredStoreId) === s.id).length;
+      const shopCount = (inventoryData.shoppingItems || []).filter(it => resolveStoreId(it.store || it.storeId) === s.id).length;
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+      row.style.justifyContent = "space-between";
+      row.style.padding = "10px 14px";
+      row.style.background = "rgba(255,255,255,0.05)";
+      row.style.borderRadius = "10px";
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">${s.iconEmoji || "🛒"}</span>
+          <div>
+            <div style="font-weight: bold; color: #f8fafc;">${escapeHtml(s.name)}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">${invCount} en stock • ${shopCount} en courses</div>
+          </div>
+        </div>
+        <button class="icon-btn delete-btn" title="Supprimer le magasin" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 6px;" onclick="deleteStoreWeb('${s.id}')" ${stores.length <= 1 ? "disabled" : ""}>🗑️</button>
+      `;
+      storeContainer.appendChild(row);
+    });
+  }
+}
+
+function deleteCategoryWeb(catId) {
+  const cats = inventoryData.categories || DEFAULT_CATEGORIES;
+  if (cats.length <= 1) {
+    alert("Impossible de supprimer la seule catégorie restante.");
+    return;
+  }
+  const cat = cats.find(c => c.id === catId);
+  const name = cat ? cat.name : catId;
+  if (!confirm(`Supprimer la catégorie « ${name} » ? Les articles associés seront réassignés à la catégorie Divers.`)) {
+    return;
+  }
+
+  const remaining = cats.filter(c => c.id !== catId);
+  const fallback = remaining.find(c => c.id === "autre")?.id || remaining[0].id;
+  const fallbackName = remaining.find(c => c.id === fallback)?.name || "Divers";
+
+  (inventoryData.items || []).forEach(it => {
+    if (resolveCategoryId(it.categoryId || it.category) === catId) {
+      it.categoryId = fallback;
+      it.category = fallbackName;
+    }
+  });
+
+  (inventoryData.shoppingItems || []).forEach(it => {
+    if (resolveCategoryId(it.categoryId || it.category) === catId) {
+      it.categoryId = fallback;
+      it.category = fallbackName;
+    }
+  });
+
+  inventoryData.categories = remaining;
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderCategoriesModal();
+  renderWebApp();
+  showToast(`Catégorie « ${name} » supprimée`, "info");
+}
+
+function deleteStoreWeb(storeId) {
+  const stores = inventoryData.storeTypes || DEFAULT_STORE_TYPES;
+  if (stores.length <= 1) {
+    alert("Impossible de supprimer le seul magasin restant.");
+    return;
+  }
+  const st = stores.find(s => s.id === storeId);
+  const name = st ? st.name : storeId;
+  if (!confirm(`Supprimer le magasin « ${name} » ? Les articles associés seront réassignés au Supermarché.`)) {
+    return;
+  }
+
+  const remaining = stores.filter(s => s.id !== storeId);
+  const fallback = remaining.find(s => s.id === "supermarket")?.id || remaining[0].id;
+  const fallbackName = remaining.find(s => s.id === fallback)?.name || "Supermarché";
+
+  (inventoryData.items || []).forEach(it => {
+    if (resolveStoreId(it.store || it.preferredStoreId) === storeId) {
+      it.preferredStoreId = fallback;
+      it.store = fallbackName;
+    }
+  });
+
+  (inventoryData.shoppingItems || []).forEach(it => {
+    if (resolveStoreId(it.store || it.storeId) === storeId) {
+      it.storeId = fallback;
+      it.store = fallbackName;
+    }
+  });
+
+  inventoryData.storeTypes = remaining;
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderCategoriesModal();
+  renderWebApp();
+  showToast(`Magasin « ${name} » supprimé`, "info");
+}
+
+function handleAddCategoryWeb() {
+  const nameInput = document.getElementById("new-cat-name");
+  const emojiInput = document.getElementById("new-cat-emoji");
+  const name = (nameInput?.value || "").trim();
+  const emoji = (emojiInput?.value || "").trim() || "📦";
+  if (!name) return;
+
+  const id = name.toLowerCase().replace(/\s+/g, "_");
+  const cats = inventoryData.categories || DEFAULT_CATEGORIES;
+  if (cats.some(c => c.id === id)) {
+    alert("Cette catégorie existe déjà.");
+    return;
+  }
+
+  cats.push({ id, name, iconEmoji: emoji, colorHex: 0xFF4F46E5, orderIndex: cats.length });
+  inventoryData.categories = cats;
+  CATEGORY_MAP[id] = name;
+  if (nameInput) nameInput.value = "";
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderCategoriesModal();
+  renderWebApp();
+  showToast(`Catégorie « ${name} » ajoutée`, "success");
+}
+
+function handleAddStoreWeb() {
+  const nameInput = document.getElementById("new-store-name");
+  const emojiInput = document.getElementById("new-store-emoji");
+  const name = (nameInput?.value || "").trim();
+  const emoji = (emojiInput?.value || "").trim() || "🛒";
+  if (!name) return;
+
+  const id = name.toLowerCase().replace(/\s+/g, "_");
+  const stores = inventoryData.storeTypes || DEFAULT_STORE_TYPES;
+  if (stores.some(s => s.id === id)) {
+    alert("Ce magasin existe déjà.");
+    return;
+  }
+
+  stores.push({ id, name, iconEmoji: emoji, colorHex: 0xFF059669, orderIndex: stores.length });
+  inventoryData.storeTypes = stores;
+  STORE_MAP[id] = name;
+  if (nameInput) nameInput.value = "";
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderCategoriesModal();
+  renderWebApp();
+  showToast(`Magasin « ${name} » ajouté`, "success");
 }
