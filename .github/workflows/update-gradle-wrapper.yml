@@ -24,11 +24,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Générer le Gradle wrapper actuel
-        run: gradle wrapper --gradle-version 9.3.1
-
       - name: Mettre à jour vers la version stable GA
-        uses: gradle/actions/update-gradle-wrapper@v6
+        uses: gradle-update/update-gradle-wrapper-action@v2
         with:
-          target-version: 'stable'
-          generate-checksums: true
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-channel: 'stable'
+          set-distribution-checksum: true
