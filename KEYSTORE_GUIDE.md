@@ -58,8 +58,10 @@ Ajoutez les 4 secrets suivants :
 
 ---
 
-## 4. Fonctionnement du Fallback Automatique
+## 4. Keystore Persistant Intégré (Zéro Désinstallation)
 
-Le script `app/build.gradle.kts` est configuré avec un repli transparent :
-1. **En CI / Production** : Si les variables d'environnement (`KEYSTORE_PATH` ou secret Base64) sont présentes, elles signent l'APK/AAB avec votre clé officielle.
-2. **En Local / AI Studio** : Si aucune variable n'est configurée, Gradle bascule automatiquement sur `debug.keystore`, ce qui permet de continuer à développer sans erreur de compilation.
+Le dépôt Needix intègre désormais un Keystore persistant sous forme encodée (`debug.keystore.base64` qui restaure automatiquement `debug.keystore`) :
+1. **Identité de signature garantie** : Tous les builds (locaux ou générés par GitHub Actions, en Debug comme en Release par défaut) utilisent désormais cette même clé cryptographique persistante (SHA-256 : `48:F2:EB:6E:AE:9B:11:D4:C4:74:EE:B0:BE:AD:1D:2E:51:59:16:27:6C:18:B8:2F:AB:8E:60:DB:77:AC:A4:90`).
+2. **Mises à jour directes sans désinstallation** : Vous pouvez installer les nouveaux APKs directement par-dessus les versions existantes sans perdre vos données locales ni devoir désinstaller l'application au préalable.
+3. **Transition unique requise** : Si votre téléphone contient encore une version antérieure générée avant cette mise en place (signée avec une clé temporaire différente), vous devez la désinstaller **une toute dernière fois**. Toutes les versions suivantes s'installeront ensuite directement sans aucune désinstallation.
+4. **Signature officielle Google Play (optionnelle)** : Si vous configurez les secrets décrits aux étapes 1 à 3, les builds de Release utiliseront votre clé privée officielle.
