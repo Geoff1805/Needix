@@ -18,14 +18,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,7 +61,11 @@ fun ItemEditDialog(
     storeTypes: List<StoreTypeEntity>,
     prefilledBarcode: String? = null,
     onDismiss: () -> Unit,
-    onSave: (InventoryItemEntity) -> Unit
+    onSave: (InventoryItemEntity) -> Unit,
+    onDeleteCategory: ((CategoryEntity) -> Unit)? = null,
+    onDeleteStoreType: ((StoreTypeEntity) -> Unit)? = null,
+    onAddCategory: ((String, String, Long) -> Unit)? = null,
+    onAddStoreType: ((String, String, Long) -> Unit)? = null
 ) {
     var name by remember { mutableStateOf(itemToEdit?.name ?: "") }
     var selectedCategoryId by remember {
@@ -342,7 +351,9 @@ fun ItemEditDialog(
             categories = categories,
             selectedId = selectedCategoryId,
             onDismiss = { showCategoryPickerDialog = false },
-            onSelect = { selectedCategoryId = it }
+            onSelect = { selectedCategoryId = it },
+            onDeleteCategory = onDeleteCategory,
+            onAddCategory = onAddCategory
         )
     }
 
@@ -352,7 +363,9 @@ fun ItemEditDialog(
             storeTypes = storeTypes,
             selectedId = preferredStoreId,
             onDismiss = { showStorePickerDialog = false },
-            onSelect = { preferredStoreId = it }
+            onSelect = { preferredStoreId = it },
+            onDeleteStoreType = onDeleteStoreType,
+            onAddStoreType = onAddStoreType
         )
     }
 }
@@ -362,8 +375,15 @@ fun CategoryPickerDialog(
     categories: List<CategoryEntity>,
     selectedId: String,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onDeleteCategory: ((CategoryEntity) -> Unit)? = null,
+    onAddCategory: ((String, String, Long) -> Unit)? = null
 ) {
+    var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newCatName by remember { mutableStateOf("") }
+    var newCatEmoji by remember { mutableStateOf("🏷️") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -378,7 +398,7 @@ fun CategoryPickerDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 categories.forEach { cat ->
                     val isSelected = selectedId == cat.id
@@ -393,7 +413,7 @@ fun CategoryPickerDialog(
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = cat.iconEmoji, fontSize = 22.sp)
@@ -412,7 +432,32 @@ fun CategoryPickerDialog(
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
+                            if (onDeleteCategory != null && categories.size > 1) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { categoryToDelete = cat }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Supprimer la catégorie ${cat.name}",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
                         }
+                    }
+                }
+
+                if (onAddCategory != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Nouvelle catégorie")
                     }
                 }
             }
@@ -423,6 +468,72 @@ fun CategoryPickerDialog(
             }
         }
     )
+
+    if (categoryToDelete != null) {
+        val cat = categoryToDelete!!
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Supprimer « ${cat.name} » ?") },
+            text = { Text("Les articles associés à cette catégorie seront automatiquement réassignés à la catégorie Divers.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteCategory?.invoke(cat)
+                        categoryToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Supprimer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Nouvelle catégorie") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newCatName,
+                        onValueChange = { newCatName = it },
+                        label = { Text("Nom") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newCatEmoji,
+                        onValueChange = { newCatEmoji = it },
+                        label = { Text("Emoji") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = newCatName.isNotBlank(),
+                    onClick = {
+                        onAddCategory?.invoke(newCatName, newCatEmoji, 0xFF4F46E5)
+                        showAddDialog = false
+                        newCatName = ""
+                    }
+                ) {
+                    Text("Ajouter")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -430,8 +541,15 @@ fun StorePickerDialog(
     storeTypes: List<StoreTypeEntity>,
     selectedId: String,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onDeleteStoreType: ((StoreTypeEntity) -> Unit)? = null,
+    onAddStoreType: ((String, String, Long) -> Unit)? = null
 ) {
+    var storeToDelete by remember { mutableStateOf<StoreTypeEntity?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newStoreName by remember { mutableStateOf("") }
+    var newStoreEmoji by remember { mutableStateOf("🏪") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -446,7 +564,7 @@ fun StorePickerDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 storeTypes.forEach { st ->
                     val isSelected = selectedId == st.id
@@ -461,7 +579,7 @@ fun StorePickerDialog(
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = st.iconEmoji, fontSize = 22.sp)
@@ -480,7 +598,32 @@ fun StorePickerDialog(
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
+                            if (onDeleteStoreType != null && storeTypes.size > 1) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { storeToDelete = st }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Supprimer le magasin ${st.name}",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
                         }
+                    }
+                }
+
+                if (onAddStoreType != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Nouveau magasin")
                     }
                 }
             }
@@ -491,4 +634,70 @@ fun StorePickerDialog(
             }
         }
     )
+
+    if (storeToDelete != null) {
+        val st = storeToDelete!!
+        AlertDialog(
+            onDismissRequest = { storeToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Supprimer le magasin « ${st.name} » ?") },
+            text = { Text("Les articles associés à ce magasin seront automatiquement réassignés au Supermarché.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteStoreType?.invoke(st)
+                        storeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Supprimer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { storeToDelete = null }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Nouveau magasin") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newStoreName,
+                        onValueChange = { newStoreName = it },
+                        label = { Text("Nom") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newStoreEmoji,
+                        onValueChange = { newStoreEmoji = it },
+                        label = { Text("Emoji") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = newStoreName.isNotBlank(),
+                    onClick = {
+                        onAddStoreType?.invoke(newStoreName, newStoreEmoji, 0xFF059669)
+                        showAddDialog = false
+                        newStoreName = ""
+                    }
+                ) {
+                    Text("Ajouter")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
 }
