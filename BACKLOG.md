@@ -163,9 +163,12 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ## 2. Historique des Versions Livrées
 
-- **v0.6.4** :
-  - Livraison de `[BACKLOG-CATEGORIES-13]` : Gestion et suppression complète des catégories et magasins sur Android et Web avec réassignation automatique des articles associés (repli vers `autre` / `supermarket`), dialogues de confirmation, et boutons de suppression dédiés dans `SyncScreen`, `ItemEditDialog` et l'interface Web.
-  - Bump de `versionCode=10` et `versionName=0.6.4` dans `version.properties`.
+- **v0.6.4 (Gestion Catégories & Magasins, Fix Signature CI)** :
+  - Livraison de `[BACKLOG-CATEGORIES-13]` : Suppression complète et sécurisée des catégories et magasins (Android & Web) avec réassignation automatique de repli des articles vers `autre` (Divers) et `supermarket` (Supermarché) afin d'éviter tout article orphelin.
+  - Garde-fou d'intégrité interdisant la suppression du dernier élément restant.
+  - Ajout des boîtes de dialogue de suppression interactive dans `SyncScreen.kt` et `ItemEditDialog.kt` sur Android, ainsi que dans la modale `#categories-modal` sur le Web.
+  - Rétablissement de la signature Debug CI avec support direct du secret GitHub `DEBUG_KEYSTORE_BASE64` et régénération de secours via `keytool`.
+  - Harmonisation du versioning : `versionCode=10`, `versionName=0.6.4`.
 - **v0.6.3 (Patch build)** :
   - Livraison de `[BACKLOG-BUILD-11]` : Hotfix du script Gradle `app/build.gradle.kts` (import `java.util.Base64` et décodage MIME sécurisé), transmission des variables secrètes de signature pour `assembleRelease`, intégration du Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle-wrapper.properties`), ajout du workflow automatisé `.github/workflows/update-gradle-wrapper.yml` et enrichissement des règles `/learn` dans `AGENTS.md`.
   - Livraison de `[BACKLOG-BUILD-10]` : Keystore persistant universel (`debug.keystore.base64`), configuration symétrique de signature Debug/Release dans `app/build.gradle.kts` et `.github/workflows/android-build.yml`, suppression de la régénération aléatoire de clés en CI, incrément du `versionCode=9` et publication conjointe d'APKs installables directement sans nécessiter de désinstaller la version précédente.
@@ -186,3 +189,4 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Passage à Java 21 (Temurin) pour la compatibilité avec le SDK Android 36 et Robolectric.
   - Déploiement manuel : compilation de l'App Bundle `.aab` et de l'archive Web rattachés automatiquement aux Releases GitHub.
   - Rédaction du guide de build manuel (`BUILD_MANUAL_GUIDE.md`).
+
