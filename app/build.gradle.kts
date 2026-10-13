@@ -30,7 +30,7 @@ configurations.configureEach {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 37
 
   val versionPropsFile = file("${rootDir}/version.properties")
   val versionProps = Properties()
@@ -62,7 +62,7 @@ android {
   defaultConfig {
     applicationId = "com.aistudio.inventory.hmtst"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 37
     versionCode = appVersionCode
     versionName = appVersionName
 
