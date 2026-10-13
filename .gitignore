@@ -18,3 +18,15 @@ local.properties
 release-keystore.jks
 my-upload-key.jks
 *.jks
+
+# Ajouté automatiquement par Sentinel (Sécurité & Secrets)
+.env.local
+*.keystore
+*.pem
+*.key
+*.p12
+build/
+.gradle/
+node_modules/
+__pycache__/
+*.pyc
