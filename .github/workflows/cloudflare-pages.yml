@@ -9,6 +9,9 @@ on:
       - '.github/workflows/cloudflare-pages.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     name: Deploy to Cloudflare Pages (needix.app)
