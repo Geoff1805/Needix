@@ -42,7 +42,7 @@ jobs:
         cache: gradle # Green IT : Mise en cache pour diviser par deux le temps CPU
 
     - name: Générer le Wrapper Gradle
-      run: gradle wrapper --gradle-version 9.3.1
+      run: if [ -f gradlew ]; then chmod +x gradlew; fi
 
     - name: Exécuter tous les tests unitaires (bloquant en cas d'échec)
       run: ./gradlew testDebugUnitTest --continue
@@ -93,7 +93,7 @@ jobs:
         fi
 
     - name: Générer le Wrapper Gradle
-      run: gradle wrapper --gradle-version 9.3.1
+      run: if [ -f gradlew ]; then chmod +x gradlew; fi
 
     - name: Compiler l'APK Android (Debug)
       run: ./gradlew assembleDebug
