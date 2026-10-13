@@ -7,15 +7,15 @@ buildscript {
   }
   dependencies {
     constraints {
-      classpath("io.netty:netty-codec:4.1.139.Final")
-      classpath("io.netty:netty-codec-http:4.1.139.Final")
-      classpath("io.netty:netty-codec-http2:4.1.139.Final")
-      classpath("io.netty:netty-handler:4.1.139.Final")
-      classpath("io.netty:netty-handler-proxy:4.1.139.Final")
-      classpath("io.netty:netty-buffer:4.1.139.Final")
-      classpath("io.netty:netty-common:4.1.139.Final")
-      classpath("io.netty:netty-transport:4.1.139.Final")
-      classpath("io.netty:netty-resolver:4.1.139.Final")
+      classpath("io.netty:netty-codec:4.2.19.Final")
+      classpath("io.netty:netty-codec-http:4.2.19.Final")
+      classpath("io.netty:netty-codec-http2:4.2.19.Final")
+      classpath("io.netty:netty-handler:4.2.19.Final")
+      classpath("io.netty:netty-handler-proxy:4.2.19.Final")
+      classpath("io.netty:netty-buffer:4.2.19.Final")
+      classpath("io.netty:netty-common:4.2.19.Final")
+      classpath("io.netty:netty-transport:4.2.19.Final")
+      classpath("io.netty:netty-resolver:4.2.19.Final")
       classpath("org.bouncycastle:bcprov-jdk18on:1.86")
       classpath("org.bouncycastle:bcpkix-jdk18on:1.86")
       classpath("org.bouncycastle:bcutil-jdk18on:1.86")
@@ -34,7 +34,7 @@ buildscript {
       when {
         requested.group == "io.netty" &&
           requested.name != "netty-tcnative-boringssl-static" &&
-          requested.name != "netty-tcnative-classes" -> useVersion("4.1.139.Final")
+          requested.name != "netty-tcnative-classes" -> useVersion("4.2.19.Final")
         requested.group == "org.bouncycastle" &&
           requested.name in setOf("bcprov-jdk18on", "bcpkix-jdk18on", "bcutil-jdk18on") -> useVersion("1.86")
         requested.group == "org.jdom" && requested.name == "jdom2" -> useVersion("2.0.6.1")
