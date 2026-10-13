@@ -45,8 +45,15 @@ jobs:
         distribution: 'temurin'
         cache: gradle # Green IT : Mise en cache pour diviser par deux le temps CPU
 
-    - name: Rendre gradlew executable
-      run: if [ -f gradlew ]; then chmod +x gradlew; fi
+    - name: Preparer Gradle Wrapper
+      run: |
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+          else
+            GRADLE_VER=$(grep 'distributionUrl' gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
+            echo "Generating gradlew for Gradle $GRADLE_VER"
+            gradle wrapper --gradle-version "$GRADLE_VER"
+          fi
 
     - name: Exécuter tous les tests unitaires (bloquant en cas d'échec)
       run: ./gradlew testDebugUnitTest --continue
@@ -96,8 +103,15 @@ jobs:
           echo "Aucun secret de signature : fallback transparent sur debug.keystore persistant."
         fi
 
-    - name: Rendre gradlew executable
-      run: if [ -f gradlew ]; then chmod +x gradlew; fi
+    - name: Preparer Gradle Wrapper
+      run: |
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+          else
+            GRADLE_VER=$(grep 'distributionUrl' gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
+            echo "Generating gradlew for Gradle $GRADLE_VER"
+            gradle wrapper --gradle-version "$GRADLE_VER"
+          fi
 
     - name: Compiler l'APK Android (Debug)
       run: ./gradlew assembleDebug
