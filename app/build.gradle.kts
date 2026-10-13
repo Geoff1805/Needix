@@ -43,9 +43,15 @@ android {
 
   val keystoreFile = file("${rootDir}/debug.keystore")
   val keystoreBase64File = file("${rootDir}/debug.keystore.base64")
-  if (!keystoreFile.exists() && keystoreBase64File.exists()) {
-    val decodedBytes = Base64.getMimeDecoder().decode(keystoreBase64File.readText().trim())
-    keystoreFile.writeBytes(decodedBytes)
+  val envDebugKeystoreBase64 = System.getenv("DEBUG_KEYSTORE_BASE64")
+  if (!keystoreFile.exists()) {
+    if (!envDebugKeystoreBase64.isNullOrBlank()) {
+      val decodedBytes = Base64.getMimeDecoder().decode(envDebugKeystoreBase64.trim())
+      keystoreFile.writeBytes(decodedBytes)
+    } else if (keystoreBase64File.exists()) {
+      val decodedBytes = Base64.getMimeDecoder().decode(keystoreBase64File.readText().trim())
+      keystoreFile.writeBytes(decodedBytes)
+    }
   }
 
   val envProps = Properties()
