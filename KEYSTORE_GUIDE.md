@@ -65,3 +65,4 @@ Le dépôt Needix intègre désormais un Keystore persistant sous forme encodée
 2. **Mises à jour directes sans désinstallation** : Vous pouvez installer les nouveaux APKs directement par-dessus les versions existantes sans perdre vos données locales ni devoir désinstaller l'application au préalable.
 3. **Transition unique requise** : Si votre téléphone contient encore une version antérieure générée avant cette mise en place (signée avec une clé temporaire différente), vous devez la désinstaller **une toute dernière fois**. Toutes les versions suivantes s'installeront ensuite directement sans aucune désinstallation.
 4. **Signature officielle Google Play (optionnelle)** : Si vous configurez les secrets décrits aux étapes 1 à 3, les builds de Release utiliseront votre clé privée officielle.
+

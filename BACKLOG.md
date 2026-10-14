@@ -190,3 +190,4 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Déploiement manuel : compilation de l'App Bundle `.aab` et de l'archive Web rattachés automatiquement aux Releases GitHub.
   - Rédaction du guide de build manuel (`BUILD_MANUAL_GUIDE.md`).
 
+

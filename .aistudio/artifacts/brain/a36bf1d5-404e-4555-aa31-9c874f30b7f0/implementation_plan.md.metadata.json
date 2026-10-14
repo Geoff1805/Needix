@@ -1,6 +1,0 @@
-{
-  "summary":  "Mise à jour du Backlog et du plan d'implémentation Needix :\n- Ajout de l'élément [BACKLOG-WEB-05] : Correction du chemin de base (base path) Web pour le sous-domaine dédié https://needix.app.\n- Spécifications de la balise <base href=\"/\"> dans index.html.\n- Élimination de l'arborescence /Needix/ dans les URLs, liens, redirections Cloudflare et code Kotlin (SyncScreen).\n- Appel de l'ensemble des assets web (CSS, JS, images) depuis la racine absolue du domaine.",
-  "updatedAt":  "2026-10-11T11:45:19.434157217Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

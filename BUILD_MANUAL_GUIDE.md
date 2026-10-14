@@ -66,3 +66,4 @@ Le pipeline est optimisé Green IT (`paths-ignore` sur markdown et workflows) et
    - Se déclenche uniquement après le succès complet de `unit-tests`.
    - Lors d'une nouvelle release publiée sur GitHub (`release: [published]`) ou d'un déclenchement manuel (`workflow_dispatch`), compile le `.aab`, archive la Web App et les attache automatiquement à la **Release GitHub**.
    - Vous pouvez ensuite télécharger les fichiers finaux directement depuis l'onglet **Releases** de votre dépôt GitHub pour les distribuer sur les stores.
+
