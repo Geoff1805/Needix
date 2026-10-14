@@ -71,7 +71,7 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
      - Ajouter / configurer la balise `<base href="/">` dans la section `<head>` pour faire pointer la racine vers `/` au lieu d'un sous-dossier.
      - S'assurer que tous les assets (CSS, JS, images, polices, favicons) sont appelés depuis la racine (`/css/style.css`, `/js/app.js`, `/js/i18n.js`, etc.) sans préfixe `/Needix/`.
   2. **Routing et Code Kotlin (Android & Multiplatform)** :
-     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix.pages.dev/Needix/` vers `https://needix.app/` (dans `SyncScreen.kt`).
+     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix-web.example.com` vers `https://needix.app/` (dans `SyncScreen.kt`).
      - Nettoyer les mentions de `(/Needix)` dans les libellés (`strings.xml` fr, en, nl : `web_landing_button`, `web_landing_desc`).
   3. **Configuration Cloudflare Pages & Redirections** :
      - Supprimer la redirection `_redirects` et le sous-dossier dupliqué `web/Needix/`.
@@ -189,5 +189,6 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Passage à Java 21 (Temurin) pour la compatibilité avec le SDK Android 36 et Robolectric.
   - Déploiement manuel : compilation de l'App Bundle `.aab` et de l'archive Web rattachés automatiquement aux Releases GitHub.
   - Rédaction du guide de build manuel (`BUILD_MANUAL_GUIDE.md`).
+
 
 
