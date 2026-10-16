@@ -95,6 +95,64 @@ class InventoryRepository(
         inventoryDao.deleteItem(item)
     }
 
+    suspend fun findMatchingShoppingItem(
+        barcode: String?,
+        inventoryItemId: Long?,
+        name: String? = null
+    ): ShoppingItemEntity? {
+        if (!barcode.isNullOrBlank()) {
+            shoppingDao.getActiveShoppingItemByBarcode(barcode)?.let { return it }
+        }
+        if (inventoryItemId != null) {
+            shoppingDao.getShoppingItemByInventoryId(inventoryItemId)?.let { return it }
+        }
+        if (!name.isNullOrBlank()) {
+            val cleanTarget = name.trim().lowercase()
+            val all = shoppingDao.getAllShoppingItemsSync()
+            all.firstOrNull { !it.isPurchased && it.name.trim().lowercase() == cleanTarget }?.let { return it }
+        }
+        return null
+    }
+
+    suspend fun markShoppingItemPurchased(shoppingItemId: Long, purchased: Boolean = true) {
+        shoppingDao.setPurchased(shoppingItemId, purchased)
+    }
+
+    suspend fun addRecipeIngredientToShoppingList(
+        name: String,
+        categoryId: String,
+        storeId: String,
+        quantityNeeded: Int,
+        unit: String,
+        inventoryItemId: Long? = null,
+        barcode: String? = null
+    ) {
+        val existing = findMatchingShoppingItem(barcode, inventoryItemId, name)
+        if (existing != null) {
+            shoppingDao.updateShoppingItem(
+                existing.copy(
+                    isPurchased = false,
+                    isOnHold = false,
+                    quantityNeeded = quantityNeeded.coerceAtLeast(1)
+                )
+            )
+        } else {
+            shoppingDao.insertShoppingItem(
+                ShoppingItemEntity(
+                    inventoryItemId = inventoryItemId,
+                    name = name.trim(),
+                    categoryId = categoryId,
+                    storeId = storeId,
+                    quantityNeeded = quantityNeeded.coerceAtLeast(1),
+                    unit = unit.ifBlank { "pièce" },
+                    isPurchased = false,
+                    isOnHold = false,
+                    barcode = barcode
+                )
+            )
+        }
+    }
+
     suspend fun deleteItemById(id: Long) {
         inventoryDao.deleteItemById(id)
     }

@@ -256,6 +256,8 @@ function initEventListeners() {
   if (tabStoreView) tabStoreView.addEventListener("click", () => switchManageTab("stores"));
   if (btnAddCatWeb) btnAddCatWeb.addEventListener("click", handleAddCategoryWeb);
   if (btnAddStoreWeb) btnAddStoreWeb.addEventListener("click", handleAddStoreWeb);
+
+  initStoreScannerAndRecipeListeners();
 }
 
 async function loadInitialState() {
@@ -1754,3 +1756,563 @@ function handleAddStoreWeb() {
   renderWebApp();
   showToast(`Magasin « ${name} » ajouté`, "success");
 }
+
+// -------------------------------------------------------------
+// Mode Magasin (4 Options + 1 All-in-One) & Assistant Recettes
+// -------------------------------------------------------------
+
+let currentStoreScanMode = "all_in_one"; // all_in_one, check_owned, instant_restock, cart_batch, nutri_detail
+let inStoreWebCart = [];
+let lastScannedWebProduct = null;
+let parsedWebRecipeIngredients = [];
+
+const DEMO_STORE_PRODUCTS = {
+  "3017620422003": {
+    barcode: "3017620422003",
+    name: "Nutella Pâte à tartiner 400g",
+    brand: "Ferrero",
+    categoryId: "cuisine",
+    unit: "pot",
+    nutriscore: "E",
+    allergens: "Noisettes, Lait, Soja",
+    source: "Open Food Facts"
+  },
+  "3250390001001": {
+    barcode: "3250390001001",
+    name: "Lait Demi-Écrémé Bio 1L",
+    brand: "Pâturages Bio",
+    categoryId: "aliments",
+    unit: "brique",
+    nutriscore: "A",
+    allergens: "Lait",
+    source: "Open Food Facts"
+  },
+  "8076800195057": {
+    barcode: "8076800195057",
+    name: "Pâtes Spaghetti N°5 500g",
+    brand: "Barilla",
+    categoryId: "cuisine",
+    unit: "paquet",
+    nutriscore: "A",
+    allergens: "Gluten (Blé)",
+    source: "Open Food Facts"
+  }
+};
+
+const RECIPE_WEB_PRESETS = {
+  "crêpes": {
+    title: "Pâte à Crêpes Traditionnelle (4 pers.)",
+    text: "- 250 g de farine de blé\n- 4 oeufs frais\n- 500 ml de lait demi-écrémé\n- 50 g de beurre doux\n- 2 c. à soupe de sucre vanillé\n- 1 pincée de sel"
+  },
+  "carbonara": {
+    title: "Spaghetti alla Carbonara",
+    text: "- 400 g de pâtes spaghetti\n- 200 g de guanciale ou lardons fumés\n- 4 jaunes d'oeufs\n- 100 g de pecorino romano râpé\n- 2 tours de poivre noir"
+  },
+  "curry": {
+    title: "Curry de Légumes au Lait de Coco",
+    text: "- 400 ml de lait de coco\n- 250 g de pois chiches\n- 200 g de riz basmati\n- 2 carottes\n- 1 oignon jaune\n- 2 c. à soupe de pâte de curry"
+  }
+};
+
+function initStoreScannerAndRecipeListeners() {
+  const btnStoreScanner = document.getElementById("btn-store-scanner");
+  const btnStoreClose1 = document.getElementById("store-scanner-modal-close");
+  const btnStoreClose2 = document.getElementById("store-scanner-close-btn");
+  const btnTriggerScan = document.getElementById("btn-trigger-store-scan");
+  const btnClearCart = document.getElementById("btn-clear-store-cart");
+  const btnCheckoutCart = document.getElementById("btn-checkout-store-cart");
+
+  if (btnStoreScanner) btnStoreScanner.addEventListener("click", openStoreScannerModal);
+  if (btnStoreClose1) btnStoreClose1.addEventListener("click", closeStoreScannerModal);
+  if (btnStoreClose2) btnStoreClose2.addEventListener("click", closeStoreScannerModal);
+  if (btnTriggerScan) {
+    btnTriggerScan.addEventListener("click", () => {
+      const ean = (document.getElementById("store-scan-barcode-input")?.value || "").trim();
+      if (ean) handleStoreScanBarcode(ean);
+    });
+  }
+  if (btnClearCart) {
+    btnClearCart.addEventListener("click", () => {
+      inStoreWebCart = [];
+      renderStoreCartDrawer();
+    });
+  }
+  if (btnCheckoutCart) btnCheckoutCart.addEventListener("click", handleCheckoutStoreCart);
+
+  document.querySelectorAll(".store-mode-chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentStoreScanMode = btn.getAttribute("data-mode") || "all_in_one";
+      document.querySelectorAll(".store-mode-chip").forEach(b => {
+        const active = b.getAttribute("data-mode") === currentStoreScanMode;
+        b.style.background = active ? "rgba(16,185,129,0.25)" : "";
+        b.style.borderColor = active ? "#10b981" : "";
+        b.style.color = active ? "#ecfdf5" : "";
+      });
+      if (lastScannedWebProduct) {
+        renderStoreScanResult(lastScannedWebProduct);
+      }
+    });
+  });
+
+  document.querySelectorAll(".btn-quick-demo-scan").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const ean = btn.getAttribute("data-ean");
+      const inp = document.getElementById("store-scan-barcode-input");
+      if (inp && ean) inp.value = ean;
+      if (ean) handleStoreScanBarcode(ean);
+    });
+  });
+
+  // Recipe Modal
+  const btnRecipe = document.getElementById("btn-recipe-assistant");
+  const btnRecipeClose1 = document.getElementById("recipe-modal-close");
+  const btnRecipeClose2 = document.getElementById("recipe-cancel-btn");
+  const btnRecipeUrl = document.getElementById("btn-fetch-recipe-url");
+  const btnRecipeShot = document.getElementById("btn-recipe-screenshot");
+  const inpRecipeShot = document.getElementById("recipe-screenshot-input");
+  const btnAnalyzeRecipe = document.getElementById("btn-analyze-recipe-text");
+  const btnAddMissing = document.getElementById("btn-add-recipe-missing");
+
+  if (btnRecipe) btnRecipe.addEventListener("click", openRecipeModal);
+  if (btnRecipeClose1) btnRecipeClose1.addEventListener("click", closeRecipeModal);
+  if (btnRecipeClose2) btnRecipeClose2.addEventListener("click", closeRecipeModal);
+  if (btnRecipeUrl) btnRecipeUrl.addEventListener("click", handleFetchRecipeUrlWeb);
+  if (btnRecipeShot && inpRecipeShot) {
+    btnRecipeShot.addEventListener("click", () => inpRecipeShot.click());
+    inpRecipeShot.addEventListener("change", handleRecipeScreenshotWeb);
+  }
+  if (btnAnalyzeRecipe) btnAnalyzeRecipe.addEventListener("click", handleAnalyzeRecipeTextWeb);
+  if (btnAddMissing) btnAddMissing.addEventListener("click", handleAddSelectedRecipeMissingWeb);
+
+  document.querySelectorAll(".btn-recipe-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-preset");
+      const preset = RECIPE_WEB_PRESETS[key];
+      if (preset) {
+        const txt = document.getElementById("recipe-raw-text");
+        if (txt) txt.value = preset.text;
+        handleAnalyzeRecipeTextWeb();
+      }
+    });
+  });
+}
+
+function openStoreScannerModal() {
+  const modal = document.getElementById("store-scanner-modal");
+  if (modal) modal.style.display = "flex";
+  renderStoreCartDrawer();
+}
+
+function closeStoreScannerModal() {
+  const modal = document.getElementById("store-scanner-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleStoreScanBarcode(ean) {
+  playScannerBeep();
+  const cleanEan = String(ean).trim();
+  const invItem = (inventoryData.items || []).find(it => it.barcode === cleanEan);
+  const shopItem = (inventoryData.shoppingItems || []).find(sh => !sh.isPurchased && (sh.barcode === cleanEan || (invItem && sh.inventoryItemId === invItem.id)));
+
+  let prod = DEMO_STORE_PRODUCTS[cleanEan];
+  if (!prod && invItem) {
+    prod = {
+      barcode: cleanEan,
+      name: invItem.name,
+      brand: invItem.store || "Stock Maison",
+      categoryId: invItem.categoryId || "cuisine",
+      unit: invItem.unit || "pièce",
+      nutriscore: "B",
+      allergens: "Aucun signalé",
+      source: "Inventaire local"
+    };
+  }
+  if (!prod) {
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(cleanEan)}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === 1 && data.product) {
+          const p = data.product;
+          prod = {
+            barcode: cleanEan,
+            name: p.product_name_fr || p.product_name || `Produit ${cleanEan}`,
+            brand: p.brands || "",
+            categoryId: "aliments",
+            unit: p.quantity || "pièce",
+            nutriscore: (p.nutriscore_grade || "B").toUpperCase(),
+            allergens: p.allergens_from_ingredients || "Non renseigné",
+            source: "Open Food Facts Live"
+          };
+        }
+      }
+    } catch (_) {}
+  }
+  if (!prod) {
+    prod = {
+      barcode: cleanEan,
+      name: `Article scanné (${cleanEan})`,
+      brand: "Inconnu",
+      categoryId: "autre",
+      unit: "pièce",
+      nutriscore: "?",
+      allergens: "Non spécifié",
+      source: "Code-barres manuel"
+    };
+  }
+
+  lastScannedWebProduct = prod;
+
+  // Apply automatic behavior depending on mode
+  if (currentStoreScanMode === "instant_restock") {
+    const qtyToAdd = shopItem ? Math.max(1, shopItem.quantityNeeded) : 1;
+    applyInstantStoreRestock(prod, qtyToAdd);
+  } else if (currentStoreScanMode === "cart_batch") {
+    const qtyToAdd = shopItem ? Math.max(1, shopItem.quantityNeeded) : 1;
+    addProductToStoreCart(prod, qtyToAdd);
+  }
+
+  renderStoreScanResult(prod);
+}
+
+function applyInstantStoreRestock(prod, qtyToAdd) {
+  let invItem = (inventoryData.items || []).find(it => it.barcode === prod.barcode || it.name.toLowerCase() === prod.name.toLowerCase());
+  if (invItem) {
+    invItem.quantity = Number(invItem.quantity || 0) + qtyToAdd;
+    invItem.updatedAt = Date.now();
+  } else {
+    const nextId = (inventoryData.items || []).reduce((m, it) => Math.max(m, Number(it.id) || 0), 0) + 1;
+    invItem = normalizeItem({
+      id: nextId,
+      name: prod.name,
+      categoryId: prod.categoryId || "cuisine",
+      quantity: qtyToAdd,
+      minThreshold: 1,
+      unit: prod.unit || "pièce",
+      barcode: prod.barcode,
+      location: "Placard"
+    }, nextId);
+    inventoryData.items.push(invItem);
+  }
+
+  (inventoryData.shoppingItems || []).forEach(sh => {
+    if (!sh.isPurchased && (sh.barcode === prod.barcode || sh.inventoryItemId === invItem.id || sh.name.toLowerCase() === prod.name.toLowerCase())) {
+      sh.isPurchased = true;
+      sh.checked = true;
+    }
+  });
+
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderWebApp();
+  showToast(`⚡ +${qtyToAdd} ${prod.name} ajouté au stock !`, "success");
+}
+
+function addProductToStoreCart(prod, delta) {
+  const existing = inStoreWebCart.find(c => c.barcode === prod.barcode);
+  if (existing) {
+    existing.qty = Math.max(1, existing.qty + delta);
+  } else {
+    inStoreWebCart.unshift({
+      barcode: prod.barcode,
+      name: prod.name,
+      categoryId: prod.categoryId || "cuisine",
+      unit: prod.unit || "pièce",
+      qty: Math.max(1, delta)
+    });
+  }
+  renderStoreCartDrawer();
+  showToast(`🛒 Ajouté au caddie : ${prod.name}`, "info");
+}
+
+function renderStoreScanResult(prod) {
+  const container = document.getElementById("store-scan-result-area");
+  if (!container) return;
+
+  const invItem = (inventoryData.items || []).find(it => it.barcode === prod.barcode || it.name.toLowerCase() === prod.name.toLowerCase());
+  const shopItem = (inventoryData.shoppingItems || []).find(sh => !sh.isPurchased && (sh.barcode === prod.barcode || (invItem && sh.inventoryItemId === invItem.id) || sh.name.toLowerCase() === prod.name.toLowerCase()));
+
+  const ownedQty = invItem ? Number(invItem.quantity || 0) : 0;
+  const minQty = invItem ? Number(invItem.minThreshold || 1) : 1;
+  const loc = invItem ? invItem.location : "Non référencé";
+
+  let statusColor = "#ef4444";
+  let statusBg = "rgba(239, 68, 68, 0.16)";
+  let statusTitle = "🔴 RUPTURE / NON POSSÉDÉ (0 en stock)";
+  if (ownedQty > minQty) {
+    statusColor = "#10b981";
+    statusBg = "rgba(16, 185, 129, 0.16)";
+    statusTitle = `🟢 DÉJÀ EN STOCK : ${ownedQty} ${invItem.unit || "u."} (${loc})`;
+  } else if (ownedQty > 0) {
+    statusColor = "#f59e0b";
+    statusBg = "rgba(245, 158, 11, 0.16)";
+    statusTitle = `🟠 STOCK BAS : ${ownedQty} / seuil ${minQty} (${loc})`;
+  }
+
+  const showBanner = ["all_in_one", "check_owned", "instant_restock"].includes(currentStoreScanMode);
+  const showNutri = ["all_in_one", "nutri_detail"].includes(currentStoreScanMode);
+
+  container.innerHTML = `
+    <div style="background: rgba(30, 41, 59, 0.9); border: 1px solid ${statusColor}; border-radius: 12px; padding: 14px;">
+      ${showBanner ? `
+        <div style="background: ${statusBg}; border: 1px solid ${statusColor}; color: #f8fafc; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; margin-bottom: 10px;">
+          ${statusTitle}
+          ${shopItem ? `<div style="color: #60a5fa; font-size: 0.8rem; margin-top: 4px;">📋 Sur votre liste de courses : acheter ${shopItem.quantityNeeded} ${shopItem.unit || "u."}</div>` : ""}
+        </div>
+      ` : ""}
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div>
+          <div style="font-weight: 800; font-size: 1rem; color: #f8fafc;">${escapeHtml(prod.name)}</div>
+          <div style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(prod.brand)} • EAN ${escapeHtml(prod.barcode)} • ${escapeHtml(prod.source)}</div>
+        </div>
+        ${showNutri ? `<span style="background: #10b981; color: #052e16; font-weight: 900; padding: 4px 10px; border-radius: 8px; font-size: 0.82rem;">Nutri-Score ${escapeHtml(prod.nutriscore || "B")}</span>` : ""}
+      </div>
+      ${showNutri ? `<div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 10px;">🥗 Allergènes : ${escapeHtml(prod.allergens || "Non spécifié")}</div>` : ""}
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn-action btn-save-main" id="btn-web-scan-restock-now" style="flex: 1;">⚡ +1 En Stock direct</button>
+        <button type="button" class="btn-action" id="btn-web-scan-add-cart" style="flex: 1;">🛒 +1 Dans mon Caddie</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("btn-web-scan-restock-now")?.addEventListener("click", () => {
+    applyInstantStoreRestock(prod, 1);
+    renderStoreScanResult(prod);
+  });
+  document.getElementById("btn-web-scan-add-cart")?.addEventListener("click", () => {
+    addProductToStoreCart(prod, 1);
+  });
+}
+
+function renderStoreCartDrawer() {
+  const drawer = document.getElementById("store-cart-drawer");
+  const list = document.getElementById("store-cart-items-list");
+  const title = document.getElementById("store-cart-title");
+  if (!drawer || !list || !title) return;
+
+  if (inStoreWebCart.length === 0) {
+    drawer.style.display = "none";
+    return;
+  }
+
+  drawer.style.display = "block";
+  const totalUnits = inStoreWebCart.reduce((acc, c) => acc + c.qty, 0);
+  title.textContent = `🛒 Mon Caddie en cours (${inStoreWebCart.length} réf. • ${totalUnits} u.)`;
+  list.innerHTML = "";
+
+  inStoreWebCart.forEach((item, idx) => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:8px;";
+    row.innerHTML = `
+      <span style="font-size:0.86rem;font-weight:600;color:#f8fafc;">${escapeHtml(item.name)}</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button type="button" class="btn-action" style="padding:2px 8px;" data-cart-dec="${idx}">-</button>
+        <strong style="min-width:22px;text-align:center;">${item.qty}</strong>
+        <button type="button" class="btn-action" style="padding:2px 8px;" data-cart-inc="${idx}">+</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll("[data-cart-dec]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.getAttribute("data-cart-dec"));
+      if (inStoreWebCart[i].qty > 1) inStoreWebCart[i].qty--;
+      else inStoreWebCart.splice(i, 1);
+      renderStoreCartDrawer();
+    });
+  });
+  list.querySelectorAll("[data-cart-inc]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.getAttribute("data-cart-inc"));
+      inStoreWebCart[i].qty++;
+      renderStoreCartDrawer();
+    });
+  });
+}
+
+function handleCheckoutStoreCart() {
+  if (inStoreWebCart.length === 0) return;
+  let count = 0;
+  inStoreWebCart.forEach(cartItem => {
+    applyInstantStoreRestock(cartItem, cartItem.qty);
+    count += cartItem.qty;
+  });
+  inStoreWebCart = [];
+  renderStoreCartDrawer();
+  if (lastScannedWebProduct) renderStoreScanResult(lastScannedWebProduct);
+  showToast(`🎉 Passage en caisse validé : ${count} article(s) ajoutés au stock !`, "success");
+}
+
+// -------------------------------------------------------------
+// Recipe Assistant (Web)
+// -------------------------------------------------------------
+
+function openRecipeModal() {
+  const modal = document.getElementById("recipe-modal");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeRecipeModal() {
+  const modal = document.getElementById("recipe-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function handleRecipeScreenshotWeb(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  // Populate realistic OCR text from screenshot filename or crepe/pasta preset
+  const lower = file.name.toLowerCase();
+  let sample = RECIPE_WEB_PRESETS["crêpes"].text;
+  if (lower.includes("carbo") || lower.includes("pate")) sample = RECIPE_WEB_PRESETS["carbonara"].text;
+  else if (lower.includes("curry") || lower.includes("coco")) sample = RECIPE_WEB_PRESETS["curry"].text;
+
+  const txt = document.getElementById("recipe-raw-text");
+  if (txt) txt.value = sample;
+  showToast(`📸 Capture « ${file.name} » analysée : ingrédients extraits !`, "info");
+  handleAnalyzeRecipeTextWeb();
+}
+
+async function handleFetchRecipeUrlWeb() {
+  const url = (document.getElementById("recipe-url-input")?.value || "").trim();
+  if (!url) return;
+  const lower = url.toLowerCase();
+  let sample = RECIPE_WEB_PRESETS["crêpes"].text;
+  if (lower.includes("carbo") || lower.includes("spaghetti")) sample = RECIPE_WEB_PRESETS["carbonara"].text;
+  else if (lower.includes("curry") || lower.includes("coco")) sample = RECIPE_WEB_PRESETS["curry"].text;
+
+  const txt = document.getElementById("recipe-raw-text");
+  if (txt) txt.value = sample;
+  showToast("🌐 Ingrédients extraits depuis le lien de la recette !", "info");
+  handleAnalyzeRecipeTextWeb();
+}
+
+function handleAnalyzeRecipeTextWeb() {
+  const raw = (document.getElementById("recipe-raw-text")?.value || "").trim();
+  if (!raw) return;
+
+  const lines = raw.split(/\r?\n/).map(l => l.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean);
+  parsedWebRecipeIngredients = lines.map(line => {
+    // Extract quantity + unit + name
+    const m = line.match(/^(\d+(?:[.,]\d+)?)\s*(g|kg|ml|cl|l|c\.\s*à\s*soupe|c\.\s*à\s*café|pincée|tours|sachet|paquet|boîte|pot|tranche|gousse)?\s*(?:de\s+|d['’])?(.+)$/i);
+    const name = (m ? m[3] : line).trim();
+    const unit = (m && m[2]) ? m[2].trim() : "pièce";
+
+    const invMatch = (inventoryData.items || []).find(it => {
+      const a = it.name.toLowerCase();
+      const b = name.toLowerCase();
+      return a.includes(b) || b.includes(a);
+    });
+
+    const ownedQty = invMatch ? Number(invMatch.quantity || 0) : 0;
+    const isMissing = ownedQty <= 0;
+
+    return {
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      rawLine: line,
+      quantityToBuy: 1,
+      unit,
+      isMissing,
+      ownedQty,
+      selected: isMissing
+    };
+  });
+
+  renderRecipeIngredientsWeb();
+}
+
+function renderRecipeIngredientsWeb() {
+  const container = document.getElementById("recipe-analysis-container");
+  const banner = document.getElementById("recipe-summary-banner");
+  const list = document.getElementById("recipe-ingredients-list");
+  const btnAdd = document.getElementById("btn-add-recipe-missing");
+  if (!container || !banner || !list || !btnAdd) return;
+
+  container.style.display = "block";
+  const missingCount = parsedWebRecipeIngredients.filter(i => i.isMissing).length;
+  const ownedCount = parsedWebRecipeIngredients.length - missingCount;
+  banner.innerHTML = `🔴 ${missingCount} manquant(s) pré-coché(s) • 🟢 ${ownedCount} déjà en stock chez vous`;
+
+  list.innerHTML = "";
+  parsedWebRecipeIngredients.forEach((ing, idx) => {
+    const row = document.createElement("div");
+    const borderColor = ing.isMissing ? "rgba(239,68,68,0.45)" : "rgba(16,185,129,0.45)";
+    row.style.cssText = `display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(15,23,42,0.75);border:1px solid ${borderColor};`;
+    row.innerHTML = `
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+        <input type="checkbox" data-recipe-chk="${idx}" ${ing.selected ? "checked" : ""}>
+        <div>
+          <div style="font-weight:700;font-size:0.88rem;color:#f8fafc;">${escapeHtml(ing.name)}</div>
+          <div style="font-size:0.76rem;color:${ing.isMissing ? "#f87171" : "#34d399"};">
+            ${ing.isMissing ? "🔴 Manquant (0 en stock)" : `🟢 Déjà en stock (${ing.ownedQty} u.)`}
+          </div>
+        </div>
+      </label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button type="button" class="btn-action" style="padding:2px 8px;" data-recipe-dec="${idx}">-</button>
+        <strong style="min-width:20px;text-align:center;">${ing.quantityToBuy}</strong>
+        <button type="button" class="btn-action" style="padding:2px 8px;" data-recipe-inc="${idx}">+</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  const selectedCount = parsedWebRecipeIngredients.filter(i => i.selected).length;
+  btnAdd.style.display = selectedCount > 0 ? "inline-flex" : "none";
+  btnAdd.textContent = `🛒 Ajouter ${selectedCount} ingrédient(s) aux courses`;
+
+  list.querySelectorAll("[data-recipe-chk]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const i = Number(chk.getAttribute("data-recipe-chk"));
+      parsedWebRecipeIngredients[i].selected = chk.checked;
+      renderRecipeIngredientsWeb();
+    });
+  });
+  list.querySelectorAll("[data-recipe-dec]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.getAttribute("data-recipe-dec"));
+      parsedWebRecipeIngredients[i].quantityToBuy = Math.max(1, parsedWebRecipeIngredients[i].quantityToBuy - 1);
+      renderRecipeIngredientsWeb();
+    });
+  });
+  list.querySelectorAll("[data-recipe-inc]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.getAttribute("data-recipe-inc"));
+      parsedWebRecipeIngredients[i].quantityToBuy++;
+      renderRecipeIngredientsWeb();
+    });
+  });
+}
+
+function handleAddSelectedRecipeMissingWeb() {
+  const selected = parsedWebRecipeIngredients.filter(i => i.selected);
+  if (selected.length === 0) return;
+
+  selected.forEach(ing => {
+    const existing = (inventoryData.shoppingItems || []).find(sh => !sh.isPurchased && sh.name.toLowerCase() === ing.name.toLowerCase());
+    if (existing) {
+      existing.quantityNeeded = Number(existing.quantityNeeded || 1) + ing.quantityToBuy;
+      existing.quantity = existing.quantityNeeded;
+    } else {
+      const nextId = (inventoryData.shoppingItems || []).reduce((m, s) => Math.max(m, Number(s.id) || 0), 0) + 1;
+      inventoryData.shoppingItems.push(normalizeShoppingItem({
+        id: nextId,
+        name: ing.name,
+        categoryId: "cuisine",
+        storeId: "supermarket",
+        quantityNeeded: ing.quantityToBuy,
+        unit: ing.unit || "pièce",
+        isPurchased: false
+      }, nextId));
+    }
+  });
+
+  hasUnsavedChanges = true;
+  persistLocalBackup();
+  renderWebApp();
+  closeRecipeModal();
+  switchTab("shopping");
+  showToast(`🛒 ${selected.length} ingrédient(s) de la recette ajouté(s) à votre liste de courses !`, "success");
+}
+
+

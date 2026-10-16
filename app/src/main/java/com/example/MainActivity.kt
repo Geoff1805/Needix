@@ -1,7 +1,9 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -62,6 +64,9 @@ import com.example.ui.viewmodel.ScannerViewModel
 import com.example.ui.viewmodel.ScannerViewModelFactory
 import com.example.ui.viewmodel.ShoppingViewModel
 import com.example.ui.viewmodel.ShoppingViewModelFactory
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
@@ -108,6 +113,59 @@ class MainActivity : ComponentActivity() {
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
                 var currentScreen by remember { mutableStateOf(AppScreen.INVENTORY) }
+
+                // Handle incoming Android Share Intent (Screenshot image/* or Recipe Link text/plain)
+                LaunchedEffect(intent) {
+                    if (intent?.action == Intent.ACTION_SEND) {
+                        val mime = intent.type ?: ""
+                        if (mime.startsWith("text/")) {
+                            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                            if (!sharedText.isNullOrBlank()) {
+                                currentScreen = AppScreen.SCANNER
+                                scannerViewModel.setActiveTabMode("recipe")
+                                val urlRegex = Regex("""https?://\S+""")
+                                val foundUrl = urlRegex.find(sharedText)?.value
+                                if (foundUrl != null) {
+                                    scannerViewModel.analyzeRecipeUrl(foundUrl)
+                                } else {
+                                    scannerViewModel.analyzeRecipeTextOrOcr(
+                                        rawText = sharedText,
+                                        sourceLabel = "📲 Recette partagée vers Needix"
+                                    )
+                                }
+                                intent.action = null
+                            }
+                        } else if (mime.startsWith("image/")) {
+                            @Suppress("DEPRECATION")
+                            val imageUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                            } else {
+                                intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+                            }
+                            if (imageUri != null) {
+                                currentScreen = AppScreen.SCANNER
+                                scannerViewModel.setActiveTabMode("recipe")
+                                try {
+                                    val inputImg = InputImage.fromFilePath(this@MainActivity, imageUri)
+                                    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                                    recognizer.process(inputImg)
+                                        .addOnSuccessListener { visionText ->
+                                            if (visionText.text.isNotBlank()) {
+                                                scannerViewModel.analyzeRecipeTextOrOcr(
+                                                    rawText = visionText.text,
+                                                    sourceLabel = "📸 Screenshot partagé (OCR ML Kit)"
+                                                )
+                                            }
+                                            recognizer.close()
+                                        }
+                                        .addOnFailureListener { recognizer.close() }
+                                } catch (_: Exception) {
+                                }
+                                intent.action = null
+                            }
+                        }
+                    }
+                }
 
                 // Request POST_NOTIFICATIONS runtime permission on Android 13+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -278,7 +336,15 @@ class MainActivity : ComponentActivity() {
                                 AppScreen.SHOPPING -> {
                                     ShoppingScreen(
                                         viewModel = shoppingViewModel,
-                                        uiState = shoppingUiState
+                                        uiState = shoppingUiState,
+                                        onOpenStoreScanner = {
+                                            scannerViewModel.setActiveTabMode("barcode")
+                                            currentScreen = AppScreen.SCANNER
+                                        },
+                                        onOpenRecipeAssistant = {
+                                            scannerViewModel.setActiveTabMode("recipe")
+                                            currentScreen = AppScreen.SCANNER
+                                        }
                                     )
                                 }
                                 AppScreen.SCANNER -> {

@@ -12,7 +12,7 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 - **Spécifications** :
   1. Remplacement intégral du fichier `LICENSE` à la racine par la mention de droits d'auteur stricte :
      ```text
-     Copyright (c) 2026 Geoff1805. All Rights Reserved. 
+     Copyright (c) 2026 Geoffroy Alsteens. All Rights Reserved. 
      This software is proprietary and confidential. Unauthorized copying, modifying, merging, publishing, distributing, or selling of this software, via any medium, is strictly prohibited.
      ```
   2. Suppression de toutes les mentions de la licence "Apache 2.0" dans l'ensemble du projet :
@@ -63,19 +63,19 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ---
 
-### [BACKLOG-WEB-05] Correction du chemin de base (Base Path) Web & Sous-domaine Dédié (needix.app)
+### [BACKLOG-WEB-05] Correction du chemin de base (Base Path) Web & Sous-domaine Dédié (needix.alsteens.net)
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Hébergement sur le sous-domaine dédié `https://needix.app`, suppression du sous-dossier `/Needix/`.
+- **Origine** : Demande utilisateur — Hébergement sur le sous-domaine dédié `https://needix.alsteens.net`, suppression du sous-dossier `/Needix/`.
 - **Spécifications** :
   1. **Fichiers HTML (`web/index.html`)** :
      - Ajouter / configurer la balise `<base href="/">` dans la section `<head>` pour faire pointer la racine vers `/` au lieu d'un sous-dossier.
      - S'assurer que tous les assets (CSS, JS, images, polices, favicons) sont appelés depuis la racine (`/css/style.css`, `/js/app.js`, `/js/i18n.js`, etc.) sans préfixe `/Needix/`.
   2. **Routing et Code Kotlin (Android & Multiplatform)** :
-     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix-web.example.com` vers `https://needix.app/` (dans `SyncScreen.kt`).
+     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix.pages.dev/Needix/` vers `https://needix.alsteens.net/` (dans `SyncScreen.kt`).
      - Nettoyer les mentions de `(/Needix)` dans les libellés (`strings.xml` fr, en, nl : `web_landing_button`, `web_landing_desc`).
   3. **Configuration Cloudflare Pages & Redirections** :
      - Supprimer la redirection `_redirects` et le sous-dossier dupliqué `web/Needix/`.
-     - Déployer le contenu web directement à la racine pour servir `index.html` à la racine de `https://needix.app`.
+     - Déployer le contenu web directement à la racine pour servir `index.html` à la racine de `https://needix.alsteens.net`.
 
 ---
 
@@ -159,10 +159,32 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
      - Gestion complète des suppressions avec réassignation automatique des articles et dialogues de confirmation en français, anglais et néerlandais.
      - Synchronisation dynamique du menu déroulant de sélection de catégorie dans la fiche produit.
 
+### [BACKLOG-SCANNER-STORE-14] Mode Magasin (Labo Live des 4 Options + Tout-en-un)
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Pouvoir scanner les articles directement au magasin pendant les courses et tester en direct les 4 options de comportement.
+- **Spécifications** :
+  1. **Option 1 (`CHECK_OWNED` — Style Bullix / Grocy)** : Bandeau haute visibilité indiquant immédiatement si l'article est déjà en stock (🟢 quantité + emplacement), en stock bas (🟠) ou en rupture / sur la liste de courses (🔴).
+  2. **Option 2 (`INSTANT_RESTOCK` — Style Bring! Express 1-Tap)** : Le scan incrémente automatiquement le stock (`+1` ou quantité demandée sur la liste), coche l'article sur la liste de courses et propose un bouton `↩ Annuler`.
+  3. **Option 3 (`CART_BATCH` — Style Scan & Go Caddie)** : Cumul des scans dans un tiroir « Mon Caddie en cours » avec contrôles `-`/`+` et validation groupée au passage en caisse.
+  4. **Option 4 (`NUTRI_DETAIL` — Style Open Food Facts)** : Fiche détaillée mettant en avant le Nutri-Score (A–E), les allergènes et la source.
+  5. **Mode 5 (`ALL_IN_ONE` — Par défaut)** : Vue unifiée combinant les 4 options sur un seul écran.
+
+### [BACKLOG-RECIPES-15] Assistant Recettes : Screenshots d'Ingrédients (OCR) & Liens Web
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur — Pouvoir envoyer des captures d'écran d'ingrédients ou des liens de recettes complètes et ajouter automatiquement les ingrédients manquants aux courses (avec validation).
+- **Spécifications** :
+  1. **OCR Local sur Capture d'Écran (`ML Kit Text Recognition`) & Partage Android (`ACTION_SEND`)** : Import depuis la galerie ou partage direct d'une capture d'écran (`image/*`) ou d'un lien (`text/plain`) vers Needix.
+  2. **Extraction Web (`Schema.org/Recipe` JSON-LD + Fallback HTML)** : Analyse directe des URLs de recettes (Marmiton, 750g, CuisineAZ, blogs).
+  3. **Croisement Intelligent avec le Stock & Validation 1-Clic** : Séparation visuelle entre ingrédients **🔴 Manquants** (pré-cochés automatiquement) et **🟢 Déjà en stock** (non cochés), avec ajustement des quantités (`-`/`+`) avant ajout à la liste de courses.
+
 ---
 
 ## 2. Historique des Versions Livrées
 
+- **v0.7.0 (Mode Magasin 4 Options Live + Assistant Recettes OCR & URL)** :
+  - Livraison de `[BACKLOG-SCANNER-STORE-14]` : Scanner Mode Magasin avec sélecteur interactif en direct des 4 options (`CHECK_OWNED`, `INSTANT_RESTOCK`, `CART_BATCH`, `NUTRI_DETAIL`) + mode combiné `ALL_IN_ONE`, contrôle du flash caméra et tiroir Caddie sur Android (`ScannerScreen.kt`, `ScannerViewModel.kt`, `ShoppingScreen.kt`) et Web (`web/index.html`, `web/app/index.html`, `web/js/app.js`).
+  - Livraison de `[BACKLOG-RECIPES-15]` : Assistant Recettes complet (`RecipeIngredientParser.kt`) supportant l'OCR local sur captures d'écran d'ingrédients (ML Kit Text Recognition), l'extraction de recettes par lien URL (`Schema.org/Recipe` JSON-LD + fallback HTML), la cible de partage Android (`Intent.ACTION_SEND`), et la pré-sélection automatique des ingrédients manquants avec validation vers la liste de courses.
+  - Harmonisation du versioning : `versionCode=19`, `versionName=0.7.0`.
 - **v0.6.4 (Gestion Catégories & Magasins, Fix Signature CI)** :
   - Livraison de `[BACKLOG-CATEGORIES-13]` : Suppression complète et sécurisée des catégories et magasins (Android & Web) avec réassignation automatique de repli des articles vers `autre` (Divers) et `supermarket` (Supermarché) afin d'éviter tout article orphelin.
   - Garde-fou d'intégrité interdisant la suppression du dernier élément restant.
@@ -181,7 +203,7 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Correctifs de sécurité des dépendances transitives Gradle (`Netty 4.1.139.Final`, `BouncyCastle 1.86`, `Guava 33.7.2-jre`, `JDOM2 2.0.6.1`, `Commons Lang3 3.21.0`, `jose4j 0.9.7`, `HttpClient 4.5.14`, `OkHttp 4.12.0`).
 - **v0.6.1** :
   - Correction des pipelines CI/CD (`android-build.yml`, `cloudflare-pages.yml`, signature debug AGP).
-  - Suppression de la boucle de redirection Web et du sous-dossier redondant `web/Needix/` au profit de `https://needix.app/`.
+  - Suppression de la boucle de redirection Web et du sous-dossier redondant `web/Needix/` au profit de `https://needix.alsteens.net/`.
   - Exécution complète de `JURIDIQUE-01`, `CLEANUP-03` et `WEB-05` (passage 100% commercial, retrait de F-Droid/FOSS/Apache 2.0).
   - Correction des bugs logiques Android (`ShoppingRepository.updateStore`, `InventoryRepository.importItems`, restauration JSON câblée, interopérabilité JSON/CSV Android ↔ Web, cycle de vie `BarcodeScanner` / `cameraExecutor`).
 - **v0.6.0** :
@@ -189,6 +211,4 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Passage à Java 21 (Temurin) pour la compatibilité avec le SDK Android 36 et Robolectric.
   - Déploiement manuel : compilation de l'App Bundle `.aab` et de l'archive Web rattachés automatiquement aux Releases GitHub.
   - Rédaction du guide de build manuel (`BUILD_MANUAL_GUIDE.md`).
-
-
 

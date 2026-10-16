@@ -23,6 +23,12 @@ interface ShoppingDao {
     @Query("SELECT * FROM shopping_items WHERE inventoryItemId = :inventoryItemId LIMIT 1")
     suspend fun getShoppingItemByInventoryId(inventoryItemId: Long): ShoppingItemEntity?
 
+    @Query("SELECT * FROM shopping_items WHERE barcode = :barcode AND isPurchased = 0 LIMIT 1")
+    suspend fun getActiveShoppingItemByBarcode(barcode: String): ShoppingItemEntity?
+
+    @Query("SELECT * FROM shopping_items")
+    suspend fun getAllShoppingItemsSync(): List<ShoppingItemEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertShoppingItem(item: ShoppingItemEntity): Long
 

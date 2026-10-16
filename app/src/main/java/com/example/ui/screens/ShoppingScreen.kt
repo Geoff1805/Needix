@@ -80,7 +80,9 @@ import com.example.ui.viewmodel.ShoppingViewModel
 @Composable
 fun ShoppingScreen(
     viewModel: ShoppingViewModel,
-    uiState: ShoppingUiState
+    uiState: ShoppingUiState,
+    onOpenStoreScanner: (() -> Unit)? = null,
+    onOpenRecipeAssistant: (() -> Unit)? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var itemToChangeStore by remember { mutableStateOf<ShoppingItemEntity?>(null) }
@@ -99,7 +101,8 @@ fun ShoppingScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -129,6 +132,34 @@ fun ShoppingScreen(
                                     contentDescription = "Vider les articles achetés",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
+                            }
+                        }
+                    }
+
+                    if (onOpenStoreScanner != null || onOpenRecipeAssistant != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (onOpenStoreScanner != null) {
+                                Button(
+                                    onClick = onOpenStoreScanner,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("open_store_scanner_from_shopping")
+                                ) {
+                                    Text("📷 Scanner en magasin", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (onOpenRecipeAssistant != null) {
+                                OutlinedButton(
+                                    onClick = onOpenRecipeAssistant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("open_recipe_assistant_from_shopping")
+                                ) {
+                                    Text("🍳 Recette / Screenshot", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

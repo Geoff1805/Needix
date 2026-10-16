@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -34,9 +35,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -44,6 +53,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -75,16 +85,23 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.example.data.model.CategoryEntity
+import com.example.data.model.InventoryItemEntity
+import com.example.data.model.ShoppingItemEntity
 import com.example.data.model.StoreTypeEntity
+import com.example.data.network.ProductLookupResult
 import com.example.data.network.ProductLookupService
 import com.example.data.receipt.ReceiptParser
+import com.example.data.recipe.RecipeIngredientParser
 import com.example.ui.components.StockBadge
+import com.example.ui.viewmodel.InStoreScanBehavior
 import com.example.ui.viewmodel.ScannerUiState
 import com.example.ui.viewmodel.ScannerViewModel
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.concurrent.Executors
 
 @Composable
@@ -103,7 +120,7 @@ fun ScannerScreen(
         ProductLookupService.ensureOfflineDatabaseLoaded(context)
     }
 
-    // Bip sonore + retour haptique dès qu'un code-barres est lu
+    // Bip sonore + retour haptique dès qu'un code-barres ou une recette est lu
     LaunchedEffect(viewModel) {
         viewModel.beepEvents.collect {
             try {
@@ -118,7 +135,6 @@ fun ScannerScreen(
         }
     }
 
-    // Remonter automatiquement vers la proposition d'ajout dès qu'un produit est détecté
     LaunchedEffect(uiState.scannedBarcode, uiState.isSearching) {
         if (uiState.scannedBarcode != null && !uiState.isSearching) {
             scrollState.animateScrollTo(0)
@@ -140,9 +156,12 @@ fun ScannerScreen(
         hasCameraPermission = isGranted
     }
 
-    var activeMode by remember { mutableStateOf("barcode") } // "barcode" ou "receipt"
+    val activeMode = uiState.activeTabMode
     var manualCodeInput by remember { mutableStateOf("") }
     var digitalReceiptInput by remember { mutableStateOf("") }
+    var recipeUrlOrTextInput by remember { mutableStateOf("") }
+    var isTorchOn by remember { mutableStateOf(false) }
+    var boundCamera by remember { mutableStateOf<Camera?>(null) }
 
     val receiptFilePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -159,51 +178,128 @@ fun ScannerScreen(
         }
     }
 
+    // Sélecteur de capture d'écran (Screenshot d'ingrédients de recette) avec ML Kit OCR 100% local
+    val recipeScreenshotPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val image = InputImage.fromFilePath(context, uri)
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        val extracted = visionText.text
+                        if (extracted.isNotBlank()) {
+                            recipeUrlOrTextInput = extracted
+                            viewModel.analyzeRecipeTextOrOcr(
+                                rawText = extracted,
+                                sourceLabel = "📸 Capture d'écran d'ingrédients (OCR ML Kit)"
+                            )
+                        }
+                        recognizer.close()
+                    }
+                    .addOnFailureListener {
+                        recognizer.close()
+                    }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(16.dp)
-            .padding(bottom = 80.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Screen title
+        // Screen Header
         Column {
             Text(
-                text = "Scanner & Tickets numériques",
+                text = "Courses en Magasin & Recettes",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                text = "Scannez un code-barres (avec bip & ajout immédiat) ou importez un ticket de caisse numérique pour mettre à jour votre stock.",
+                text = "Scannez au magasin (testez les 4 options en direct), importez un screenshot/lien de recette pour ajouter les ingrédients manquants, ou lisez un ticket numérique.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        // Sélecteur de mode : Scanner Code-barres vs Ticket de caisse numérique
+        // Sélecteur des 3 grands modes : Scanner Magasin / Recettes (Screenshot & Lien) / Ticket numérique
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             FilterChip(
                 selected = activeMode == "barcode",
-                onClick = { activeMode = "barcode" },
-                label = { Text("📷 Scanner Code-barres") },
+                onClick = { viewModel.setActiveTabMode("barcode") },
+                label = { Text("📷 Magasin", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = activeMode == "recipe",
+                onClick = { viewModel.setActiveTabMode("recipe") },
+                label = { Text("🍳 Recettes", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
                 selected = activeMode == "receipt",
-                onClick = { activeMode = "receipt" },
-                label = { Text("🧾 Ticket numérique") },
+                onClick = { viewModel.setActiveTabMode("receipt") },
+                label = { Text("🧾 Ticket", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                 modifier = Modifier.weight(1f)
             )
         }
 
         if (activeMode == "barcode") {
             // =========================================================================
-            // PROPOSITION PRIORITAIRE EN HAUT D'ÉCRAN DÈS QU'UN CODE-BARRES EST LU
+            // SÉLECTEUR EN DIRECT DES 4 OPTIONS DE SCAN AU MAGASIN (+ MODE TOUT-EN-UN)
             // =========================================================================
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "🎛️ Testez les 4 expériences de scan en magasin :",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(InStoreScanBehavior.entries) { behavior ->
+                            val isSelected = uiState.scanBehavior == behavior
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.setScanBehavior(behavior) },
+                                label = {
+                                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                        Text(
+                                            text = behavior.label,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = behavior.badge,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+                }
+            }
 
             if (uiState.isSearching) {
                 Row(
@@ -217,94 +313,37 @@ fun ScannerScreen(
                 }
             }
 
-            // Résultat 1 : Article déjà présent dans l'inventaire local
-            if (uiState.existingItem != null) {
-                val item = uiState.existingItem
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = Color(0xFFEFF6FF)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF2563EB)
-                            )
-                            Text(
-                                text = "🔊 Code-barres lu — Article déjà en stock !",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1D4ED8)
-                            )
-                        }
-
-                        Text(
-                            text = item.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            StockBadge(quantity = item.quantity, minThreshold = item.minThreshold)
-                            Text(
-                                text = "Emplacement : ${item.location}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.quickIncrementExisting(item, storeTypes) },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Ajouter +1 au stock")
-                            }
-
-                            FilledTonalButton(onClick = { viewModel.reset() }) {
-                                Text("Scanner un autre")
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Résultat 2 : Produit identifié via Base hors-ligne ou Multi-API -> Proposition d'ajout immédiate
-            if (uiState.onlineProduct != null) {
-                val prod = uiState.onlineProduct
-                NewScannedProductForm(
-                    barcode = prod.barcode,
-                    defaultName = prod.name,
-                    suggestedCategory = prod.suggestedCategory,
-                    suggestedUnit = prod.suggestedUnit,
-                    suggestedNotes = prod.suggestedNotes,
-                    sourceName = prod.source,
-                    nutriScore = prod.nutriScore,
-                    allergens = prod.allergens,
-                    imageUrl = prod.imageUrl,
+            // =========================================================================
+            // AFFICHAGE ADAPTATIF SELON L'OPTION SÉLECTIONNÉE (1, 2, 3, 4 ou 5)
+            // =========================================================================
+            if (uiState.existingItem != null || uiState.onlineProduct != null) {
+                InStoreScanResultSection(
+                    uiState = uiState,
                     categories = categories,
                     storeTypes = storeTypes,
-                    onAdd = { name, cat, qty, unit, store, loc, notes ->
+                    onIncrementExisting = { item, delta ->
+                        viewModel.quickIncrementExisting(item, storeTypes, delta)
+                    },
+                    onUndoExpress = {
+                        viewModel.undoLastExpressRestock(storeTypes)
+                    },
+                    onAddToCart = {
+                        viewModel.addCurrentScannedToCart()
+                    },
+                    onAddNewToInventory = { name, cat, qty, unit, store, loc, notes ->
                         viewModel.addScannedItemToInventory(name, cat, qty, unit, store, loc, notes)
                     },
-                    onCancel = { viewModel.reset() }
+                    onReset = { viewModel.reset() }
+                )
+            }
+
+            // TIROIR PANIER CADDIE EN COURS (Option 3 ou Tout-en-un)
+            if (uiState.scanBehavior == InStoreScanBehavior.CART_BATCH || uiState.inStoreCart.isNotEmpty()) {
+                InStoreCartDrawerCard(
+                    cartItems = uiState.inStoreCart,
+                    onUpdateQty = { barcode, delta -> viewModel.updateCartItemQuantity(barcode, delta) },
+                    onCheckout = { viewModel.checkoutInStoreCart(storeTypes) },
+                    onClear = { viewModel.clearInStoreCart() }
                 )
             }
 
@@ -355,7 +394,7 @@ fun ScannerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(240.dp)
+                        .height(230.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
@@ -409,7 +448,11 @@ fun ScannerScreen(
                                         barcodeScanner.process(image)
                                             .addOnSuccessListener { barcodes ->
                                                 barcodes.firstOrNull()?.rawValue?.let { code ->
-                                                    viewModel.onBarcodeDetected(code, forceNewScan = false)
+                                                    viewModel.onBarcodeDetected(
+                                                        barcode = code,
+                                                        forceNewScan = false,
+                                                        storeTypes = storeTypes
+                                                    )
                                                 }
                                             }
                                             .addOnCompleteListener {
@@ -422,7 +465,7 @@ fun ScannerScreen(
 
                                 try {
                                     cameraProvider.unbindAll()
-                                    cameraProvider.bindToLifecycle(
+                                    boundCamera = cameraProvider.bindToLifecycle(
                                         lifecycleOwner,
                                         CameraSelector.DEFAULT_BACK_CAMERA,
                                         preview,
@@ -437,17 +480,68 @@ fun ScannerScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
+                    // HUD Mode Indicator in Top-Left + Torch Button in Top-Right
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = uiState.scanBehavior.label,
+                                color = Color(0xFF34D399),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Surface(
+                            color = if (isTorchOn) Color(0xFFFBBF24) else Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.clickable {
+                                isTorchOn = !isTorchOn
+                                boundCamera?.cameraControl?.enableTorch(isTorchOn)
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                                    contentDescription = "Flash",
+                                    tint = if (isTorchOn) Color.Black else Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = if (isTorchOn) "Flash ON" else "Flash",
+                                    color = if (isTorchOn) Color.Black else Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
                     // Laser scan frame overlay
                     Box(
                         modifier = Modifier
-                            .size(200.dp, 130.dp)
-                            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                            .size(210.dp, 125.dp)
+                            .border(2.dp, Color(0xFF10B981), RoundedCornerShape(14.dp))
                     )
 
                     // Red scanning guide beam
                     Box(
                         modifier = Modifier
-                            .size(180.dp, 2.dp)
+                            .size(190.dp, 2.dp)
                             .background(Color(0xFFF43F5E))
                     )
                 }
@@ -470,12 +564,12 @@ fun ScannerScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Activer la caméra pour scanner",
+                            text = "Activer la caméra pour scanner en magasin",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "L'accès à la caméra permet de scanner instantanément les codes EAN, UPC et ISBN avec bip sonore et proposition immédiate d'ajout.",
+                            text = "L'accès à la caméra permet de scanner vos produits au magasin avec bip sonore et mise à jour directe du stock.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -490,10 +584,10 @@ fun ScannerScreen(
                 }
             }
 
-            // Quick Testing Barcodes
+            // Quick Testing Barcodes (Rayon virtuel pour tester les 4 options en 1 tap)
             Column {
                 Text(
-                    text = "⚡ Tester un code-barres (simulateur multi-catégories avec bip) :",
+                    text = "🏪 Rayon de test (touchez un produit pour simuler le scan avec l'option choisie) :",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -505,7 +599,7 @@ fun ScannerScreen(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.clickable {
-                                viewModel.onBarcodeDetected(demo.code, forceNewScan = true)
+                                viewModel.onBarcodeDetected(demo.code, forceNewScan = true, storeTypes = storeTypes)
                             }
                         ) {
                             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
@@ -544,13 +638,308 @@ fun ScannerScreen(
                 Button(
                     onClick = {
                         if (manualCodeInput.isNotBlank()) {
-                            viewModel.onBarcodeDetected(manualCodeInput, forceNewScan = true)
+                            viewModel.onBarcodeDetected(manualCodeInput, forceNewScan = true, storeTypes = storeTypes)
                         }
                     },
                     enabled = manualCodeInput.isNotBlank(),
                     modifier = Modifier.testTag("manual_barcode_search_btn")
                 ) {
                     Icon(Icons.Default.Search, contentDescription = "Rechercher")
+                }
+            }
+        } else if (activeMode == "recipe") {
+            // =========================================================================
+            // MODE ASSISTANT RECETTES : SCREENSHOT D'INGRÉDIENTS (OCR) & LIEN DE RECETTE
+            // =========================================================================
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestaurantMenu,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(
+                                text = "Assistant Recettes (Screenshot & Lien Web)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Envoyez une capture d'écran d'ingrédients ou collez un lien de recette : Needix détecte ce que vous possédez déjà et pré-coche les ingrédients manquants !",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Bouton principal : Envoyer un Screenshot d'ingrédients (Galerie -> ML Kit OCR)
+                    Button(
+                        onClick = { recipeScreenshotPicker.launch("image/*") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("pick_recipe_screenshot_btn")
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("📸 Envoyer un Screenshot d'ingrédients (OCR)")
+                    }
+
+                    // Exemples rapides en 1 tap pour tester immédiatement
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                recipeUrlOrTextInput = RecipeIngredientParser.SAMPLE_CREPES_RECIPE_OCR.trimIndent()
+                                viewModel.analyzeRecipeTextOrOcr(
+                                    rawText = recipeUrlOrTextInput,
+                                    sourceLabel = "📸 Exemple Screenshot OCR : Crêpes Maison"
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🥞 Démo Screenshot Crêpes", fontSize = 11.sp)
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                recipeUrlOrTextInput = RecipeIngredientParser.SAMPLE_CARBONARA_RECIPE.trimIndent()
+                                viewModel.analyzeRecipeTextOrOcr(
+                                    rawText = recipeUrlOrTextInput,
+                                    sourceLabel = "🔗 Exemple Lien Recette : Pâtes Carbonara"
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🍝 Démo Lien Carbonara", fontSize = 11.sp)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = recipeUrlOrTextInput,
+                        onValueChange = { recipeUrlOrTextInput = it },
+                        label = { Text("Lien URL de recette complète ou liste d'ingrédients") },
+                        placeholder = { Text("Collez https://marmiton.org/... ou le texte des ingrédients") },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("recipe_url_or_text_input")
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            val trimmed = recipeUrlOrTextInput.trim()
+                            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                                viewModel.analyzeRecipeUrl(trimmed)
+                            } else {
+                                viewModel.analyzeRecipeTextOrOcr(trimmed)
+                            }
+                        },
+                        enabled = recipeUrlOrTextInput.isNotBlank() && !uiState.isAnalyzingRecipe,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("analyze_recipe_btn")
+                    ) {
+                        Icon(Icons.Default.Link, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("🔍 Analyser les ingrédients et comparer au stock")
+                    }
+                }
+            }
+
+            if (uiState.isAnalyzingRecipe) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Extraction des ingrédients et comparaison avec votre stock...")
+                }
+            }
+
+            // Carte de validation des ingrédients de la recette (Manquants pré-cochés vs En stock décochés)
+            if (uiState.recipeResult != null) {
+                val recipe = uiState.recipeResult
+                val missingCount = recipe.ingredients.count { it.isMissing }
+                val ownedCount = recipe.ingredients.size - missingCount
+                val selectedCount = recipe.ingredients.count { it.isSelectedForShopping }
+
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = recipe.sourceLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = recipe.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+
+                        // Résumé Possédés vs Manquants
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                color = Color(0xFFD1FAE5),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "✅ $ownedCount en stock",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF065F46),
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "Décochés par défaut",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF047857)
+                                    )
+                                }
+                            }
+                            Surface(
+                                color = Color(0xFFFEE2E2),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "🚨 $missingCount manquant(s)",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF991B1B),
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "Pré-cochés pour achat",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFB91C1C)
+                                    )
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = "Validez les ingrédients à ajouter à votre liste de courses ($selectedCount sélectionné(s)) :",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        recipe.ingredients.forEachIndexed { idx, ing ->
+                            Surface(
+                                color = if (ing.isSelectedForShopping) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { viewModel.toggleRecipeIngredientSelection(idx) }
+                                    ) {
+                                        Checkbox(
+                                            checked = ing.isSelectedForShopping,
+                                            onCheckedChange = { viewModel.toggleRecipeIngredientSelection(idx) }
+                                        )
+                                        Column {
+                                            Text(
+                                                text = ing.ingredientName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            val statusBadge = if (!ing.isMissing) {
+                                                "✅ En stock (${ing.ownedQuantity} ${ing.unit}) • Requis : ${ing.requiredAmountText}"
+                                            } else {
+                                                "🚨 Manquant (0 en stock) • Requis : ${ing.requiredAmountText}"
+                                            }
+                                            Text(
+                                                text = statusBadge,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (!ing.isMissing) Color(0xFF059669) else Color(0xFFDC2626),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        TextButton(onClick = { viewModel.updateRecipeIngredientQuantity(idx, -1) }) {
+                                            Text("-", fontWeight = FontWeight.ExtraBold)
+                                        }
+                                        Text(
+                                            text = "${ing.suggestedQuantityToBuy}",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        TextButton(onClick = { viewModel.updateRecipeIngredientQuantity(idx, 1) }) {
+                                            Text("+", fontWeight = FontWeight.ExtraBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.addSelectedRecipeIngredientsToShoppingList(storeTypes) },
+                                enabled = selectedCount > 0,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("confirm_recipe_to_shopping_btn")
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ajouter ($selectedCount) aux courses")
+                            }
+                            TextButton(onClick = { viewModel.clearRecipeResult() }) {
+                                Text("Fermer")
+                            }
+                        }
+                    }
                 }
             }
         } else {
@@ -735,6 +1124,345 @@ fun ScannerScreen(
 }
 
 @Composable
+private fun InStoreScanResultSection(
+    uiState: ScannerUiState,
+    categories: List<CategoryEntity>,
+    storeTypes: List<StoreTypeEntity>,
+    onIncrementExisting: (InventoryItemEntity, Int) -> Unit,
+    onUndoExpress: () -> Unit,
+    onAddToCart: () -> Unit,
+    onAddNewToInventory: (name: String, categoryId: String, quantity: Int, unit: String, storeId: String, location: String, notes: String) -> Unit,
+    onReset: () -> Unit
+) {
+    val existing = uiState.existingItem
+    val online = uiState.onlineProduct
+    val shopMatch = uiState.matchingShoppingItem
+    val behavior = uiState.scanBehavior
+
+    // Option 1 (Anti-Doublon Bullix/Grocy) ou Mode 5 (Tout-en-un)
+    if (behavior == InStoreScanBehavior.CHECK_OWNED || behavior == InStoreScanBehavior.ALL_IN_ONE) {
+        if (existing != null) {
+            val isOut = existing.quantity <= 0
+            val isLow = existing.quantity in 1..existing.minThreshold
+            val containerBg = when {
+                isOut -> Color(0xFFDC2626)
+                isLow -> Color(0xFFD97706)
+                else -> Color(0xFF059669)
+            }
+            val headerText = when {
+                isOut -> "🚨 RUPTURE DE STOCK (0 CHEZ VOUS)"
+                isLow -> "⚠️ STOCK BAS (${existing.quantity} ${existing.unit} RESTANT)"
+                else -> "✅ DÉJÀ EN STOCK (${existing.quantity} ${existing.unit})"
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = containerBg)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = headerText,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp
+                        )
+                        if (!online?.nutriScore.isNullOrBlank()) {
+                            NutriScorePill(online?.nutriScore!!)
+                        }
+                    }
+
+                    Text(
+                        text = existing.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+
+                    Text(
+                        text = buildString {
+                            append("📍 Rangé dans : ${existing.location}")
+                            if (shopMatch != null) {
+                                append(" • 🛒 Sur votre liste (${shopMatch.quantityNeeded} ${shopMatch.unit})")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.92f)
+                    )
+
+                    if (!online?.allergens.isNullOrBlank()) {
+                        Text(
+                            text = "⚠️ Allergènes : ${online?.allergens}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onIncrementExisting(existing, 1) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("+1 Stock Direct", fontWeight = FontWeight.ExtraBold)
+                        }
+
+                        if (behavior == InStoreScanBehavior.ALL_IN_ONE) {
+                            FilledTonalButton(
+                                onClick = onAddToCart,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("🛒 Au Caddie", fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            FilledTonalButton(onClick = { onIncrementExisting(existing, -1) }) {
+                                Text("-1")
+                            }
+                        }
+                    }
+                }
+            }
+            return
+        }
+    }
+
+    // Option 2 : Validation Express 1-Tap (Style Bring!)
+    if (behavior == InStoreScanBehavior.INSTANT_RESTOCK && existing != null) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "⚡ VALIDATION EXPRESS 1-TAP • AUTO-COCHÉ",
+                    color = Color(0xFF6EE7B7),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "${existing.name} → Stock : ${existing.quantity} ${existing.unit}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
+                )
+                if (shopMatch != null) {
+                    Text(
+                        text = "✓ Rayé automatiquement de votre liste de courses !",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFA7F3D0)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilledTonalButton(onClick = { onIncrementExisting(existing, -1) }) {
+                            Text("-1")
+                        }
+                        Button(onClick = { onIncrementExisting(existing, 1) }) {
+                            Text("+1")
+                        }
+                    }
+                    if (uiState.lastExpressUndo != null) {
+                        OutlinedButton(
+                            onClick = onUndoExpress,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFCA5A5))
+                        ) {
+                            Text("↩ Annuler")
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    // Option 4 (Fiche Nutri Open Food Facts) ou Produit non encore possédé
+    if (online != null) {
+        NewScannedProductForm(
+            barcode = online.barcode,
+            defaultName = online.name,
+            suggestedCategory = online.suggestedCategory,
+            suggestedUnit = online.suggestedUnit,
+            suggestedNotes = online.suggestedNotes,
+            sourceName = online.source,
+            nutriScore = online.nutriScore,
+            allergens = online.allergens,
+            imageUrl = online.imageUrl,
+            categories = categories,
+            storeTypes = storeTypes,
+            onAdd = onAddNewToInventory,
+            onCancel = onReset
+        )
+    } else if (existing != null) {
+        // Fallback standard pour un article existant
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(existing.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                StockBadge(quantity = existing.quantity, minThreshold = existing.minThreshold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onIncrementExisting(existing, 1) }, modifier = Modifier.weight(1f)) {
+                        Text("+1 au stock")
+                    }
+                    FilledTonalButton(onClick = onAddToCart) {
+                        Text("🛒 Caddie")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InStoreCartDrawerCard(
+    cartItems: List<com.example.ui.viewmodel.InStoreCartItem>,
+    onUpdateQty: (String, Int) -> Unit,
+    onCheckout: () -> Unit,
+    onClear: () -> Unit
+) {
+    val totalUnits = cartItems.sumOf { it.quantity }
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "🛒 Mon Caddie en cours ($totalUnits art.)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                if (cartItems.isNotEmpty()) {
+                    TextButton(onClick = onClear) {
+                        Text("Vider")
+                    }
+                }
+            }
+
+            if (cartItems.isEmpty()) {
+                Text(
+                    text = "Scannez vos articles au fur et à mesure que vous les déposez dans votre chariot, puis validez tout votre caddie en 1 clic à la caisse.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                cartItems.forEach { item ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(
+                                    text = "${item.location}${if (item.wasOnShoppingList) " • ✓ Sur la liste" else ""}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { onUpdateQty(item.barcode, -1) }) {
+                                    Text("-", fontWeight = FontWeight.ExtraBold)
+                                }
+                                Text("${item.quantity}", fontWeight = FontWeight.ExtraBold)
+                                TextButton(onClick = { onUpdateQty(item.barcode, 1) }) {
+                                    Text("+", fontWeight = FontWeight.ExtraBold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onCheckout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("checkout_instore_cart_btn")
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Valider mon passage en caisse ($totalUnits art.)", fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NutriScorePill(nutriScore: String) {
+    val grade = nutriScore.uppercase()
+    val nutriColor = when (grade) {
+        "A" -> Color(0xFF038141)
+        "B" -> Color(0xFF85BB2F)
+        "C" -> Color(0xFFFECB02)
+        "D" -> Color(0xFFEE8100)
+        else -> Color(0xFFE63E11)
+    }
+    Surface(
+        color = nutriColor,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = "Nutri-Score $grade",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (grade == "C") Color.Black else Color.White,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
 fun NewScannedProductForm(
     barcode: String,
     defaultName: String,
@@ -804,25 +1532,7 @@ fun NewScannedProductForm(
                     }
 
                     if (!nutriScore.isNullOrBlank()) {
-                        val nutriColor = when (nutriScore.uppercase()) {
-                            "A" -> Color(0xFF038141)
-                            "B" -> Color(0xFF85BB2F)
-                            "C" -> Color(0xFFFECB02)
-                            "D" -> Color(0xFFEE8100)
-                            else -> Color(0xFFE63E11)
-                        }
-                        Surface(
-                            color = nutriColor,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "Nutri-Score ${nutriScore.uppercase()}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (nutriScore.uppercase() == "C") Color.Black else Color.White,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
+                        NutriScorePill(nutriScore)
                     }
                 }
             }
@@ -871,7 +1581,6 @@ fun NewScannedProductForm(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Category selector
             Text("Rayon / Catégorie :", style = MaterialTheme.typography.labelMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(categories) { cat ->
