@@ -127,6 +127,7 @@ android {
     unitTests {
       isIncludeAndroidResources = true
       all {
+        it.systemProperty("robolectric.useConscrypt", "false")
         it.jvmArgs(
           "--add-opens=java.base/java.lang=ALL-UNNAMED",
           "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
