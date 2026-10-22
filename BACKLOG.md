@@ -63,19 +63,19 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ---
 
-### [BACKLOG-WEB-05] Correction du chemin de base (Base Path) Web & Sous-domaine Dédié (needix.alsteens.net)
+### [BACKLOG-WEB-05] Correction du chemin de base (Base Path) Web & Sous-domaine Dédié (needix.pages.dev)
 - **Statut** : `Terminé / Livré`
-- **Origine** : Demande utilisateur — Hébergement sur le sous-domaine dédié `https://needix.alsteens.net`, suppression du sous-dossier `/Needix/`.
+- **Origine** : Demande utilisateur — Hébergement sur le sous-domaine dédié `https://needix.pages.dev`, suppression du sous-dossier `/Needix/`.
 - **Spécifications** :
   1. **Fichiers HTML (`web/index.html`)** :
      - Ajouter / configurer la balise `<base href="/">` dans la section `<head>` pour faire pointer la racine vers `/` au lieu d'un sous-dossier.
      - S'assurer que tous les assets (CSS, JS, images, polices, favicons) sont appelés depuis la racine (`/css/style.css`, `/js/app.js`, `/js/i18n.js`, etc.) sans préfixe `/Needix/`.
   2. **Routing et Code Kotlin (Android & Multiplatform)** :
-     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix.pages.dev/Needix/` vers `https://needix.alsteens.net/` (dans `SyncScreen.kt`).
+     - Vérifier la configuration des URLs dans le code Kotlin : mise à jour de l'URL cible de la Web App de `https://needix.pages.dev/Needix/` vers `https://needix.pages.dev/` (dans `SyncScreen.kt`).
      - Nettoyer les mentions de `(/Needix)` dans les libellés (`strings.xml` fr, en, nl : `web_landing_button`, `web_landing_desc`).
   3. **Configuration Cloudflare Pages & Redirections** :
      - Supprimer la redirection `_redirects` et le sous-dossier dupliqué `web/Needix/`.
-     - Déployer le contenu web directement à la racine pour servir `index.html` à la racine de `https://needix.alsteens.net`.
+     - Déployer le contenu web directement à la racine pour servir `index.html` à la racine de `https://needix.pages.dev`.
 
 ---
 
@@ -203,7 +203,7 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
   - Correctifs de sécurité des dépendances transitives Gradle (`Netty 4.1.139.Final`, `BouncyCastle 1.86`, `Guava 33.7.2-jre`, `JDOM2 2.0.6.1`, `Commons Lang3 3.21.0`, `jose4j 0.9.7`, `HttpClient 4.5.14`, `OkHttp 4.12.0`).
 - **v0.6.1** :
   - Correction des pipelines CI/CD (`android-build.yml`, `cloudflare-pages.yml`, signature debug AGP).
-  - Suppression de la boucle de redirection Web et du sous-dossier redondant `web/Needix/` au profit de `https://needix.alsteens.net/`.
+  - Suppression de la boucle de redirection Web et du sous-dossier redondant `web/Needix/` au profit de `https://needix.pages.dev/`.
   - Exécution complète de `JURIDIQUE-01`, `CLEANUP-03` et `WEB-05` (passage 100% commercial, retrait de F-Droid/FOSS/Apache 2.0).
   - Correction des bugs logiques Android (`ShoppingRepository.updateStore`, `InventoryRepository.importItems`, restauration JSON câblée, interopérabilité JSON/CSV Android ↔ Web, cycle de vie `BarcodeScanner` / `cameraExecutor`).
 - **v0.6.0** :
