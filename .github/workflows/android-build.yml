@@ -65,10 +65,11 @@ jobs:
 
     - name: Sauvegarder les rapports de tests unitaires
       if: failure()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: test-reports
         path: app/build/reports/tests/testDebugUnitTest/
+        retention-days: 3
 
   # Job 2 : Compilation & Packaging des Artefacts de Release (Android AAB + Archive Web)
   package-and-release:
@@ -140,16 +141,11 @@ jobs:
         ls -lh build-artifacts/
 
     - name: Sauvegarder l'APK Normalisé (Needix.apk)
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: Needix.apk
         path: build-artifacts/Needix.apk
-
-    - name: Sauvegarder l'APK de vérification (Debug)
-      uses: actions/upload-artifact@v7
-      with:
-        name: Needix-Debug-APK
-        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 3
 
     - name: Compiler l'APK Android (Release)
       continue-on-error: true
@@ -159,13 +155,6 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: ./gradlew assembleRelease
-
-    - name: Sauvegarder l'APK Installable (Release)
-      if: always()
-      uses: actions/upload-artifact@v7
-      with:
-        name: Needix-Release-APK
-        path: build-artifacts/Needix.apk
 
     - name: Compiler le Bundle Google Play (.aab) (Release uniquement)
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
@@ -186,17 +175,19 @@ jobs:
 
     - name: Sauvegarder le bundle AAB comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: Needix-Release-Bundle-AAB
         path: app/build/outputs/bundle/release/*.aab
+        retention-days: 3
 
     - name: Sauvegarder le bundle Web comme artefact
       if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: Needix-Web-Archive
         path: needix-web-v*.tar.gz
+        retention-days: 3
 
     - name: Attacher les artefacts finaux (.aab, .apk et archive Web) à la Release GitHub
       if: github.event_name == 'release' && github.event.action == 'published'
