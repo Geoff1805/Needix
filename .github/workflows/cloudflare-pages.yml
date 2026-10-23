@@ -1,12 +1,6 @@
 name: Deploy Needix Web App to Cloudflare Pages
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'web/**'
-      - 'wrangler.toml'
-      - '.github/workflows/cloudflare-pages.yml'
   workflow_dispatch:
 
 permissions:
