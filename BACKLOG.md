@@ -6,6 +6,13 @@ Ce document centralise l'état d'avancement, le registre des décisions et les t
 
 ## 1. Backlog Actif
 
+### [BACKLOG-JURIDIQUE-16] Retour sous Licence MIT
+- **Statut** : `Terminé / Livré`
+- **Origine** : Demande utilisateur du 26/10/2026 — ensemble de l'écosystème passé sous MIT.
+- **Spécifications** :
+  1. Remplacement du fichier `LICENSE` propriétaire (`All Rights Reserved`, cf. JURIDIQUE-01, conservé ci-dessous à titre historique) par la licence **MIT** : « Copyright (c) 2026 Geoff1805 ».
+  2. Le code de Needix est désormais utilisable, modifiable et redistribuable selon les termes MIT ; le modèle commercial (essai 14 jours + abonnement RevenueCat, version Web gratuite) reste inchangé.
+
 ### [BACKLOG-JURIDIQUE-01] Correction Juridique : Passage en Licence Propriétaire
 - **Statut** : `Terminé / Livré`
 - **Origine** : Demande utilisateur — Pivot commercial 100%.
