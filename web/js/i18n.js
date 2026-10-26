@@ -104,7 +104,7 @@ const I18N = {
     lbl_notes: "Notes",
     btn_cancel: "Annuler",
     btn_save: "Enregistrer l'article",
-    footer_text: "Needix • Application éco-conçue propriétaire. Site hébergé sur Cloudflare Pages (données d'inventaire 100% locales). Seule la version Web est sans abonnement. Tous droits réservés."
+    footer_text: "Needix • Application éco-conçue sous licence MIT. Site hébergé sur Cloudflare Pages (données d'inventaire 100% locales). Seule la version Web est sans abonnement."
   },
 
   en: {
@@ -211,7 +211,7 @@ const I18N = {
     lbl_notes: "Notes",
     btn_cancel: "Cancel",
     btn_save: "Save Item",
-    footer_text: "Needix • Eco-designed proprietary software. Site hosted on Cloudflare Pages (100% local inventory data). Only the Web version is subscription-free. All Rights Reserved."
+    footer_text: "Needix • Eco-designed software under the MIT license. Site hosted on Cloudflare Pages (100% local inventory data). Only the Web version is subscription-free."
   },
 
   nl: {
@@ -318,7 +318,7 @@ const I18N = {
     lbl_notes: "Notities",
     btn_cancel: "Annuleren",
     btn_save: "Artikel opslaan",
-    footer_text: "Needix • Ecologisch ontworpen propriëtaire software. Gehost op Cloudflare Pages (100% lokale gegevens). Alleen de webversie is zonder abonnement. Alle rechten voorbehouden."
+    footer_text: "Needix • Ecologisch ontworpen software onder de MIT-licentie. Gehost op Cloudflare Pages (100% lokale gegevens). Alleen de webversie is zonder abonnement."
   }
 };
 
