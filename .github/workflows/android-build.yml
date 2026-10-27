@@ -1,6 +1,11 @@
 name: Build, Test and Release Needix
 
 on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   release:
     types: [ published ]
   workflow_dispatch:
