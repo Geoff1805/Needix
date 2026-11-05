@@ -96,6 +96,7 @@ jobs:
           echo "Clé de signature de production détectée dans les secrets GitHub."
           echo "$KEYSTORE_BASE64" | base64 -d > release-keystore.jks
           echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/release-keystore.jks" >> $GITHUB_ENV
+          echo "RELEASE_KEYSTORE_FILE=$GITHUB_WORKSPACE/release-keystore.jks" >> $GITHUB_ENV
         else
           echo "Aucun secret de signature de release : fallback transparent sur debug.keystore."
         fi
@@ -143,6 +144,10 @@ jobs:
         STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        RELEASE_KEYSTORE_FILE: ${{ env.RELEASE_KEYSTORE_FILE }}
+        RELEASE_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: ./gradlew assembleRelease
 
     - name: Compiler le Bundle Google Play (.aab) (Release uniquement)

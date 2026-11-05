@@ -77,27 +77,33 @@ android {
   }
 
   signingConfigs {
+    create("release") {
+      fun cfg(name: String): String? = System.getenv(name) ?: (findProperty(name) as String?)
+      val sharedStore = cfg("RELEASE_KEYSTORE_FILE")?.let { file(it) } ?: cfg("KEYSTORE_PATH")?.let { file(it) }
+      if (sharedStore != null && sharedStore.exists()) {
+        storeFile = sharedStore
+        storePassword = cfg("RELEASE_STORE_PASSWORD") ?: cfg("STORE_PASSWORD")
+        keyAlias = cfg("RELEASE_KEY_ALIAS") ?: cfg("KEY_ALIAS")
+        keyPassword = cfg("RELEASE_KEY_PASSWORD") ?: cfg("KEY_PASSWORD")
+      } else if (file("${rootDir}/release-keystore.jks").exists()) {
+        storeFile = file("${rootDir}/release-keystore.jks")
+        storePassword = cfg("RELEASE_STORE_PASSWORD") ?: cfg("STORE_PASSWORD")
+        keyAlias = cfg("RELEASE_KEY_ALIAS") ?: cfg("KEY_ALIAS")
+        keyPassword = cfg("RELEASE_KEY_PASSWORD") ?: cfg("KEY_PASSWORD")
+      } else {
+        storeFile = keystoreFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
+      enableV1Signing = true
+      enableV2Signing = true
+    }
     getByName("debug") {
       storeFile = keystoreFile
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
-    }
-    create("release") {
-      val customPath = System.getenv("KEYSTORE_PATH")
-      val releaseKeystore = if (!customPath.isNullOrEmpty() && file(customPath).exists()) {
-        file(customPath)
-      } else if (file("${rootDir}/release-keystore.jks").exists()) {
-        file("${rootDir}/release-keystore.jks")
-      } else if (file("${rootDir}/my-upload-key.jks").exists()) {
-        file("${rootDir}/my-upload-key.jks")
-      } else {
-        keystoreFile
-      }
-      storeFile = releaseKeystore
-      storePassword = System.getenv("STORE_PASSWORD")?.takeUnless { it.isBlank() } ?: "android"
-      keyAlias = System.getenv("KEY_ALIAS")?.takeUnless { it.isBlank() } ?: "androiddebugkey"
-      keyPassword = System.getenv("KEY_PASSWORD")?.takeUnless { it.isBlank() } ?: "android"
     }
   }
 
